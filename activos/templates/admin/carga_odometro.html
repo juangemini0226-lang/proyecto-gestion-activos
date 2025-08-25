@@ -1,0 +1,18 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>Cargar Historial de Ciclos (Odómetro)</h2>
+<p>Selecciona el archivo Excel semanal para actualizar los contadores de ciclos de los moldes.</p>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Cargar Archivo" class="btn btn-primary">
+</form>
+
+{% if mensajes %}
+    <h3 class="mt-4">Resultados de la Carga:</h3>
+    <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; max-height: 300px; overflow-y: auto;">
+        {% for mensaje in mensajes %}
+            <p>{{ mensaje }}</p>
+        {% endfor %}
+    </div> {% endif %} {% endblock %}

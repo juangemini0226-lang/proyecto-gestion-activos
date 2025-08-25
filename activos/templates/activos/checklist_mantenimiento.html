@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+
+  <!-- Encabezado -->
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h5 mb-1">Checklist OT #{{ ot.id }} — {{ ot.activo.codigo }} / {{ ot.activo.nombre }}</h1>
+      <div class="small text-muted">
+        Estado:
+        {% if ot.estado == 'PEN' %}
+          <span class="badge text-bg-secondary">Pendiente</span>
+        {% elif ot.estado == 'PRO' %}
+          <span class="badge text-bg-info">En Progreso</span>
+        {% elif ot.estado == 'REV' %}
+          <span class="badge text-bg-warning">Pend. Revisión</span>
+        {% else %}
+          <span class="badge text-bg-success">Cerrada</span>
+        {% endif %}
+        {% if ot.tipo %} · Tipo: <strong>{{ ot.get_tipo_display }}</strong>{% endif %}
+        {% if ot.falla %} · Falla: <strong>{{ ot.falla.codigo }} — {{ ot.falla.nombre }}</strong>{% endif %}
+        {% if ot.plantilla_aplicada %}
+          · Plantilla: <strong>{{ ot.plantilla_aplicada.nombre }}</strong>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Avance -->
+    <div class="ms-3" style="min-width:260px;">
+      <div class="small mb-1">Avance: <strong>{{ ot.porcentaje_avance }}%</strong></div>
+      <div class="progress" style="height:8px;">
+        <div class="progress-bar js-w" data-w="{{ ot.porcentaje_avance|default_if_none:0|floatformat:0 }}"
+             role="progressbar" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', () => {
+          document.querySelectorAll('.js-w').forEach(el => {
+            const w = parseInt(el.dataset.w || 0, 10);
+            const clamped = Math.max(0, Math.min(100, w));
+            el.style.width = clamped + '%';
+            el.setAttribute('aria-valuenow', clamped);
+          });
+        });
+      </script>
+    </div>
+  </div>
+
+  <!-- FORM 1: Guardar checklist -->
+  <form method="post" class="mb-4">
+    {% csrf_token %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 56px;">OK</th>
+            <th>Tarea</th>
+            <th class="text-nowrap" style="width: 140px;">Meta</th>
+            <th style="min-width: 240px;">Observaciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for det in tareas %}
+          <tr>
+            <td class="text-center">
+              <input class="form-check-input" type="checkbox" name="tarea_{{ det.id }}"
+                     {% if det.completado %}checked{% endif %}>
+            </td>
+            <td>
+              <div class="fw-semibold">{{ det.tarea.nombre }}</div>
+              <div class="small text-muted">
+                {% if det.obligatorio %}
+                  <span class="badge text-bg-danger">Obligatorio</span>
+                {% endif %}
+                {% if det.requiere_evidencia %}
+                  <span class="badge text-bg-dark">Evidencia</span>
+                {% endif %}
+                {% if det.orden %}
+                  <span class="badge text-bg-light text-muted">Orden {{ det.orden }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="text-muted small">
+              {% if det.requiere_evidencia %}
+                Subir foto/archivo (pendiente de UI)
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              <textarea class="form-control form-control-sm" name="obs_{{ det.id }}" rows="1"
+                        placeholder="Opcional">{{ det.observaciones }}</textarea>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4">No hay ítems en el checklist.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit" name="guardar_checklist" value="1">
+        <i class="bi bi-save me-1"></i> Guardar cambios
+      </button>
+
+      <!-- Enviar a revisión (misma vista) -->
+      <button class="btn btn-warning"
+              name="enviar_revision" value="1" type="submit"
+              {% if ot.porcentaje_avance < 100 or ot.estado not in 'PRO' %}disabled{% endif %}>
+        <i class="bi bi-arrow-right-circle me-1"></i> Enviar a revisión
+      </button>
+
+      <!-- Cerrar OT (usa vista cambiar_estado_ot) -->
+      {% if ot.estado == 'REV' %}
+      </form><!-- cerramos el form principal para no anidar -->
+      <form method="post" action="{% url 'activos:cambiar_estado_ot' ot.id %}" class="d-inline-block">
+        {% csrf_token %}
+        <input type="hidden" name="estado" value="CER">
+        <button class="btn btn-success" type="submit">
+          <i class="bi bi-check2-circle me-1"></i> Cerrar OT
+        </button>
+      </form>
+      <form method="post" class="d-inline-block"><!-- reabrimos para mantener la estructura -->
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- FILA DE ACCIONES AVANZADAS -->
+  <div class="row g-3">
+    <!-- FORM 2: Cargar plantilla -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header py-2">
+          <strong>Cargar plantilla</strong>
+        </div>
+        <div class="card-body">
+          <form method="post">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+              <div class="col-8">
+                {{ cargar_form.plantilla.label_tag }}
+                {{ cargar_form.plantilla|add_class:"form-select" }}
+              </div>
+              <div class="col-4">
+                <button class="btn btn-outline-primary w-100" type="submit" name="cargar_plantilla" value="1">
+                  <i class="bi bi-layers me-1"></i> Aplicar
+                </button>
+              </div>
+            </div>
+            <div class="form-text mt-2">
+              Se listan plantillas Global / Familia / Activo (y por falla si aplica).
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM 3: Guardar como plantilla -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header py-2">
+          <strong>Guardar checklist como plantilla</strong>
+        </div>
+        <div class="card-body">
+          <form method="post">
+            {% csrf_token %}
+            <div class="row g-2">
+              <div class="col-md-7">
+                {{ guardar_form.nombre.label_tag }}
+                {{ guardar_form.nombre|add_class:"form-control" }}
+              </div>
+              <div class="col-md-5">
+                <div class="form-check mt-4">
+                  {{ guardar_form.es_global|add_class:"form-check-input" }}
+                  <label class="form-check-label" for="{{ guardar_form.es_global.id_for_label }}">
+                    Disponible para cualquier activo (Global)
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex justify-content-end mt-3">
+              <button class="btn btn-outline-success" type="submit" name="guardar_plantilla" value="1">
+                <i class="bi bi-bookmark-check me-1"></i> Guardar como plantilla
+              </button>
+            </div>
+            <div class="form-text mt-2">
+              Se guardan también los flags de <em>Obligatorio</em>, <em>Evidencia</em> y el <em>Orden</em>.
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM 4: Agregar tarea rápida -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header py-2">
+          <strong>Agregar tarea al checklist</strong>
+        </div>
+        <div class="card-body">
+          <form method="post" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <div class="col-md-5">
+              {{ add_tarea_form.tarea_existente.label_tag }}
+              {{ add_tarea_form.tarea_existente|add_class:"form-select" }}
+            </div>
+            <div class="col-md-5">
+              {{ add_tarea_form.nueva_tarea.label_tag }}
+              {{ add_tarea_form.nueva_tarea|add_class:"form-control" }}
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-outline-secondary w-100" type="submit" name="add_tarea_rapida" value="1">
+                <i class="bi bi-plus-lg me-1"></i> Agregar
+              </button>
+            </div>
+            <div class="col-12">
+              <div class="form-text">
+                Elige una tarea del catálogo o escribe una nueva. Se añadirá al final del checklist.
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+
+</div>
+{% endblock %}

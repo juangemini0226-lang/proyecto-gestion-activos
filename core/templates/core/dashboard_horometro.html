@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-4">
+  <h1 class="mb-3">Dashboard · Horómetro</h1>
+
+  <form method="get" class="mb-4">
+    <div class="row g-2 align-items-end">
+      <div class="col-sm-6 col-md-4">
+        <label for="codigo" class="form-label">Activo</label>
+        <input id="codigo" name="codigo" list="activos" class="form-control"
+               value="{{ form.cleaned_data.codigo|default:'' }}" placeholder="Ej. MOL15282">
+        <datalist id="activos">
+          {% for c,n in activos_list %}
+            <option value="{{ c }}">{{ c }} — {{ n }}</option>
+          {% endfor %}
+        </datalist>
+        <div class="form-text">Escribe el código o elige de la lista.</div>
+      </div>
+
+      <div class="col-sm-4 col-md-3">
+        <label for="limite" class="form-label">Rango</label>
+        <select id="limite" name="limite" class="form-select">
+          <option value="0"  {% if not limite %}selected{% endif %}>Todas</option>
+          <option value="12" {% if limite == 12 %}selected{% endif %}>Últimas 12</option>
+          <option value="26" {% if limite == 26 %}selected{% endif %}>Últimas 26</option>
+          <option value="52" {% if limite == 52 %}selected{% endif %}>Últimas 52</option>
+        </select>
+      </div>
+
+      <div class="col-sm-3 col-md-2">
+        <button class="btn btn-primary w-100" type="submit">Ver</button>
+      </div>
+    </div>
+  </form>
+
+  {% if activo %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Evolución — {{ activo.codigo }} · {{ activo.nombre }}</h5>
+          <button id="btnCsv" type="button" class="btn btn-outline-secondary btn-sm">Descargar CSV</button>
+        </div>
+        <div style="height: 380px" class="mt-3">
+          <canvas id="evolucionChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Lecturas</h5>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Año</th><th>Semana</th><th>Lectura</th><th>Creado</th></tr></thead>
+            <tbody>
+              {% for l in lecturas %}
+                <tr>
+                  <td>{{ l.anio }}</td>
+                  <td>{{ l.semana }}</td>
+                  <td>{{ l.lectura }}</td>
+                  <td>{{ l.creado_en|date:"Y-m-d H:i" }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4">Sin lecturas para este activo.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if lecturas.has_other_pages %}
+        <nav aria-label="Paginación">
+          <ul class="pagination pagination-sm mb-0">
+            {% if lecturas.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?codigo={{ form.cleaned_data.codigo }}&limite={{ limite }}&page={{ lecturas.previous_page_number }}">«</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">«</span></li>
+            {% endif %}
+
+            {% for p in lecturas.paginator.page_range %}
+              {% if p == lecturas.number %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+              {% else %}
+                <li class="page-item">
+                  <a class="page-link" href="?codigo={{ form.cleaned_data.codigo }}&limite={{ limite }}&page={{ p }}">{{ p }}</a>
+                </li>
+              {% endif %}
+            {% endfor %}
+
+            {% if lecturas.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?codigo={{ form.cleaned_data.codigo }}&limite={{ limite }}&page={{ lecturas.next_page_number }}">»</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">»</span></li>
+            {% endif %}
+          </ul>
+        </nav>
+        {% endif %}
+      </div>
+    </div>
+
+    {{ chart_labels|json_script:"labels-data" }}
+    {{ chart_values|json_script:"values-data" }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const nf = new Intl.NumberFormat(); // formateo local de miles
+      const labels = JSON.parse(document.getElementById("labels-data").textContent || "[]");
+      const values = JSON.parse(document.getElementById("values-data").textContent || "[]");
+
+      // CSV (labels,values)
+      document.getElementById("btnCsv")?.addEventListener("click", () => {
+        let csv = "Periodo,Lectura\n";
+        labels.forEach((l, i) => { csv += `${l},${values[i] ?? ""}\n`; });
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `horometro_{{ activo.codigo }}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      const ctx = document.getElementById('evolucionChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Lectura semanal',
+            data: values,
+            fill: false,
+            tension: 0.3,
+            pointRadius: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: 'Año-Semana' } },
+            y: { 
+              title: { display: true, text: 'Lectura' },
+              ticks: {
+                callback: (v) => nf.format(v)
+              }
+            }
+          },
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.dataset.label}: ${nf.format(ctx.parsed.y)}`
+              },
+              mode: 'index', intersect: false
+            }
+          }
+        }
+      });
+    </script>
+  {% else %}
+    <div class="alert alert-info">Selecciona un activo para ver su evolución.</div>
+  {% endif %}
+</div>
+{% endblock %}

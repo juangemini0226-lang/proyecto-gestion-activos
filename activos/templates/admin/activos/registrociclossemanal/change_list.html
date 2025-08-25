@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+  {{ block.super }}
+  <li>
+    <a href="upload-excel/" class="addlink">
+      {% blocktrans with cl.opts.verbose_name as name %}Cargar Excel de Odómetro{% endblocktrans %}
+    </a>
+  </li>
+{% endblock %}

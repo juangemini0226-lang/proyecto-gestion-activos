@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Órdenes de Mantenimiento</h1>
+    <div class="d-flex gap-2">
+      <a href="{% url 'activos:agendar_mantenimiento' %}" class="btn btn-sm btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Nueva OT
+      </a>
+      <a href="{% url 'activos:mis_tareas' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-list-check me-1"></i> Mis tareas
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtros (persisten en sesión) -->
+  <form method="post" class="row gy-2 gx-2 align-items-end mb-3">
+    {% csrf_token %}
+    <div class="col-md-3">
+      <label class="form-label">Estado</label>
+      <select name="estado" class="form-select">
+        <option value="" {% if not filtros.estado %}selected{% endif %}>Todos</option>
+        {% for val,label in ESTADOS %}
+          <option value="{{ val }}" {% if filtros.estado == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Tipo</label>
+      <select name="tipo" class="form-select">
+        <option value="" {% if not filtros.tipo %}selected{% endif %}>Todos</option>
+        <option value="PRE" {% if filtros.tipo == "PRE" %}selected{% endif %}>Preventivo</option>
+        <option value="COR" {% if filtros.tipo == "COR" %}selected{% endif %}>Correctivo</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Buscar</label>
+      <input type="text" name="q" class="form-control" value="{{ filtros.q }}" placeholder="OT, activo, nombre u operario">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-primary w-100" type="submit">
+        <i class="bi bi-funnel me-1"></i> Filtrar
+      </button>
+    </div>
+  </form>
+
+  <!-- Tabla -->
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Activo</th>
+          <th>Tipo</th>
+          <th>Estado</th>
+          <th>Asignado a</th>
+          <th>Creado por</th>
+          <th>Creación</th>
+          <th class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for ot in page_obj.object_list %}
+        <tr>
+          <td class="text-muted">#{{ ot.id }}</td>
+          <td>
+            <div class="fw-semibold">{{ ot.activo.codigo }}</div>
+            <div class="small text-muted">{{ ot.activo.nombre }}</div>
+          </td>
+          <td>
+            {% if ot.tipo == 'PRE' %}
+              <span class="badge text-bg-primary">Preventivo</span>
+            {% else %}
+              <span class="badge text-bg-secondary">Correctivo</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if ot.estado == 'PEN' %}
+              <span class="badge text-bg-secondary">Pendiente</span>
+            {% elif ot.estado == 'PRO' %}
+              <span class="badge text-bg-info">En Progreso</span>
+            {% elif ot.estado == 'REV' %}
+              <span class="badge text-bg-warning">Pend. Revisión</span>
+            {% elif ot.estado == 'CER' %}
+              <span class="badge text-bg-success">Cerrada</span>
+            {% endif %}
+          </td>
+          <td>{{ ot.asignado_a.username|default:"—" }}</td>
+          <td>{{ ot.creado_por.username|default:"—" }}</td>
+          <td class="text-nowrap">{{ ot.fecha_creacion|date:"Y-m-d H:i" }}</td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm" role="group">
+              <a href="{% url 'activos:asignar_ot' ot.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-person-gear"></i> Asignar
+              </a>
+              <a href="{% url 'activos:checklist_mantenimiento' ot.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-card-checklist"></i> Checklist
+              </a>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">
+            No hay órdenes con el filtro actual.
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginación -->
+  <nav aria-label="Paginación de órdenes">
+    <ul class="pagination">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+      {% endif %}
+
+      <li class="page-item disabled">
+        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+      </li>
+
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
+{% endblock %}

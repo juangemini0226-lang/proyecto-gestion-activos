@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load static %}
+{% load json_script %}
+
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Horómetro — {{ activo.codigo }} · {{ activo.nombre }}</h1>
+
+  <!-- Gráfica -->
+  <section style="max-width: 960px; margin: 1rem 0;">
+    <canvas id="evolucionChart"></canvas>
+  </section>
+
+  <!-- Tabla -->
+  <table>
+    <thead>
+      <tr><th>Año</th><th>Semana</th><th>Lectura</th><th>Creado</th></tr>
+    </thead>
+    <tbody>
+      {% for l in lecturas %}
+        <tr>
+          <td>{{ l.anio }}</td>
+          <td>{{ l.semana }}</td>
+          <td>{{ l.lectura }}</td>
+          <td>{{ l.creado_en|date:"Y-m-d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">Sin lecturas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Datos seguros para JS -->
+  {{ chart_labels|json_script:"labels-data" }}
+  {{ chart_values|json_script:"values-data" }}
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const labels = JSON.parse(document.getElementById("labels-data").textContent);
+    const values = JSON.parse(document.getElementById("values-data").textContent);
+
+    const ctx = document.getElementById('evolucionChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Lectura semanal',
+          data: values,
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        aspectRatio: 2.2,
+        scales: {
+          x: { title: { display: true, text: 'Semana (Año-Semana)' } },
+          y: { title: { display: true, text: 'Lectura' }, beginAtZero: false }
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: { mode: 'index', intersect: false }
+        }
+      }
+    });
+  </script>
+{% endblock %}

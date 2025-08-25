@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle del Activo: {{ activo.codigo }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f4f4f4; }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            padding: 2em;
+            max-width: 600px;
+            margin: auto;
+        }
+        h1 { color: #333; }
+        p { color: #555; line-height: 1.6; }
+        strong { color: #000; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Ficha del Activo: <strong>{{ activo.codigo }}</strong></h1>
+        <hr>
+        <p><strong>Nombre:</strong> {{ activo.nombre }}</p>
+        <p><strong>Descripción:</strong> {{ activo.descripcion }}</p>
+        <p><strong>Categoría:</strong> {{ activo.categoria }}</p>
+        <p><strong>Estado:</strong> {{ activo.estado }}</p>
+        <p><strong>Ubicación:</strong> {{ activo.ubicacion }}</p>
+    </div>
+
+    <div class="card" style="margin-top: 2em;">
+        <h2>Checklist de Mantenimiento</h2>
+        <hr>
+        <ul>
+            <li>Limpiar cavidades del molde.</li>
+            <li>Revisar sistema de expulsión.</li>
+            <li>Verificar estado de las columnas guía.</li>
+            <li>Engrasar componentes móviles.</li>
+        </ul>
+        <button style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer;">
+            <a href="{% url 'activos:iniciar_mantenimiento' activo.id %}" class="btn btn-primary mt-auto">Iniciar Mantenimiento</a>
+        </button>
+    </div>
+    <div style="text-align: center; margin-top: 2em;">
+        <a href="/escaner/">Escanear otro activo</a>
+    </div>
+</body>
+</html>

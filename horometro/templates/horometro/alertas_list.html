@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Alertas de Mantenimiento</h1>
+    <span class="text-muted small">{{ alertas|length }} resultado{{ alertas|length|pluralize }}</span>
+  </div>
+
+  <form method="get" class="row gy-2 gx-2 align-items-end mb-3">
+    <div class="col-sm-4">
+      <label class="form-label">Estado</label>
+      <select name="estado" class="form-select">
+        <option value="" {% if not estado %}selected{% endif %}>Todos</option>
+        <option value="NUEVA" {% if estado == "NUEVA" %}selected{% endif %}>Nuevas</option>
+        <option value="EN_PROCESO" {% if estado == "EN_PROCESO" %}selected{% endif %}>En proceso</option>
+        <option value="CERRADA" {% if estado == "CERRADA" %}selected{% endif %}>Cerradas</option>
+      </select>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label">Buscar activo</label>
+      <input type="text" class="form-control" name="q" value="{{ q }}" placeholder="Código, nombre o número">
+    </div>
+    <div class="col-sm-2">
+      <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Activo</th>
+          <th>Año-Semana</th>
+          <th class="text-end">Ciclos ΔPrev</th>
+          <th class="text-end">Umbral</th>
+          <th>Estado</th>
+          <th class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in alertas %}
+        {# Colores por estado #}
+        <tr class="{% if a.estado == 'NUEVA' %}table-danger{% elif a.estado == 'EN_PROCESO' %}table-warning{% else %}table-success{% endif %}">
+          <td>
+            <div class="fw-semibold">
+              <a href="{% url 'horometro_historial' a.activo.codigo %}" class="link-dark text-decoration-none">
+                {{ a.activo.codigo }}
+              </a>
+            </div>
+            <div class="text-muted small">{{ a.activo.nombre }}</div>
+          </td>
+          <td>{{ a.anio }}-W{{ a.semana|stringformat:"02d" }}</td>
+          <td class="text-end">{{ a.valor_ciclos }}</td>
+          <td class="text-end">{{ a.umbral }}</td>
+          <td>
+            {% if a.estado == "NUEVA" %}
+              <span class="badge text-bg-danger"><i class="bi bi-exclamation-triangle-fill"></i> Nueva</span>
+            {% elif a.estado == "EN_PROCESO" %}
+              <span class="badge text-bg-warning text-dark"><i class="bi bi-tools"></i> En proceso</span>
+            {% else %}
+              <span class="badge text-bg-success"><i class="bi bi-check-circle-fill"></i> Cerrada</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm" role="group">
+              <a class="btn btn-outline-secondary" href="{% url 'horometro_historial' a.activo.codigo %}">
+                Ver historial
+              </a>
+              <form action="{% url 'horometro_alerta_estado' a.pk %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="estado" value="EN_PROCESO">
+                <button class="btn btn-outline-warning" {% if a.estado == "EN_PROCESO" %}disabled{% endif %}>
+                  En proceso
+                </button>
+              </form>
+              <form action="{% url 'horometro_alerta_estado' a.pk %}" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="estado" value="CERRADA">
+                <button class="btn btn-outline-success" {% if a.estado == "CERRADA" %}disabled{% endif %}>
+                  Cerrar
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">
+            No hay alertas con el filtro actual.
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

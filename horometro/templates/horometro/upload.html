@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-4">
+  <h1 class="mb-3">Cargar Horómetro (Excel)</h1>
+
+  <form method="post" enctype="multipart/form-data" class="row gy-3">
+    {% csrf_token %}
+
+    <div class="col-md-5">
+      <label class="form-label">{{ form.archivo.label }}</label>
+      {{ form.archivo }}
+      {% if form.archivo.help_text %}<div class="form-text">{{ form.archivo.help_text }}</div>{% endif %}
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label">{{ form.hoja.label }}</label>
+      {{ form.hoja }}
+      {% if form.hoja.help_text %}<div class="form-text">{{ form.hoja.help_text }}</div>{% endif %}
+    </div>
+
+    <div class="col-sm-2">
+      <label class="form-label">{{ form.anio.label }}</label>
+      {{ form.anio }}
+    </div>
+
+    <div class="col-sm-2">
+      <label class="form-label">{{ form.semana.label }}</label>
+      {{ form.semana }}
+    </div>
+
+    <div class="col-12">
+      <div class="form-check">
+        {{ form.dry_run }} <label class="form-check-label" for="{{ form.dry_run.id_for_label }}">{{ form.dry_run.label }}</label>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <button class="btn btn-primary" type="submit">Procesar</button>
+    </div>
+  </form>
+
+  {% if resultado %}
+    <div class="alert {% if dry %}alert-info{% else %}alert-success{% endif %} mt-4">
+      <strong>{% if dry %}Simulación{% else %}Importación realizada{% endif %}:</strong>
+      {{ resultado.resumen }}
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <h5 class="h6">Registros procesados</h5>
+        <pre class="small bg-light border rounded p-2" style="max-height:320px;overflow:auto">{{ resultado.match_log }}</pre>
+      </div>
+      <div class="col-md-6">
+        <h5 class="h6">Errores</h5>
+        <pre class="small bg-light border rounded p-2" style="max-height:320px;overflow:auto">{{ resultado.errores }}</pre>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

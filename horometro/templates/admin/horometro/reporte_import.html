@@ -1,0 +1,9 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <h1>Reporte de importación {{ dry|yesno:"(Simulación),(Real)" }}</h1>
+  <p>{{ resultado.resumen }}</p>
+  <h3>Coincidencias</h3>
+  <pre>{{ resultado.match_log }}</pre>
+  <h3>Errores</h3>
+  <pre style="color:crimson">{{ resultado.errores|default:"(ninguno)" }}</pre>
+{% endblock %}
