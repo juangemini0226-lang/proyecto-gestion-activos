@@ -51,7 +51,7 @@ class EstadoOT(models.TextChoices):
     PEN = "PEN", "Pendiente"
     PRO = "PRO", "En Progreso"
     REV = "REV", "Pendiente Revisión"
-    CER = "CER", "Cerrada"  # <- estado de cierre usado por señales/servicios
+    COM = "COM", "Completada"  # <-- Cambia 'CER', 'Cerrada' por esto
 
 
 class TipoOT(models.TextChoices):
@@ -229,6 +229,32 @@ class DetalleMantenimiento(models.Model):
     def __str__(self):
         return f"Tarea '{self.tarea.nombre}' para registro {self.registro.id}"
 
+# --- AÑADIR ESTE MANAGER JUSTO ANTES DE 'PlantillaChecklist' ---
+
+class PlantillaChecklistManager(models.Manager):
+    def get_best_template_for(self, *, activo: Activo, tipo: str, falla: "CatalogoFalla" = None):
+        qs = self.filter(vigente=True, tipo=tipo)
+        
+        # 1. Prioridad: Falla específica
+        if falla:
+            template = qs.filter(falla=falla).order_by("-version").first()
+            if template:
+                return template
+
+        # 2. Prioridad: Activo específico
+        template = qs.filter(activo=activo).order_by("-version").first()
+        if template:
+            return template
+
+        # 3. Prioridad: Familia del Activo
+        if activo.familia:
+            template = qs.filter(familia=activo.familia).order_by("-version").first()
+            if template:
+                return template
+
+        # 4. Prioridad: Fallback Global
+        return qs.filter(es_global=True).order_by("-version").first()
+
 
 # -------- Plantillas de checklist (para cargar y reutilizar) --------
 class PlantillaChecklist(models.Model):
@@ -271,28 +297,29 @@ class PlantillaChecklist(models.Model):
             scope = "SIN ÁMBITO"
         falla = f" · Falla:{self.falla.codigo}" if self.falla_id else ""
         return f"{self.nombre} ({self.get_tipo_display()} · {scope}{falla}) v{self.version}"
+# --- DENTRO de PlantillaChecklist, REEMPLAZA el método 'mejor_coincidencia' POR ESTO ---
+#    @classmethod
+#    def mejor_coincidencia(cls, *, activo, tipo, falla=None):
+#        """
+#        Prioridad: Activo → Familia → Global.
+#        Si 'falla' viene, prioriza plantillas con esa falla (o sin falla).
+#        """
+#        qs = cls.objects.filter(vigente=True, tipo=tipo)
+#        if falla:
+#            qs = qs.filter(models.Q(falla=falla) | models.Q(falla__isnull=True))
 
-    @classmethod
-    def mejor_coincidencia(cls, *, activo, tipo, falla=None):
-        """
-        Prioridad: Activo → Familia → Global.
-        Si 'falla' viene, prioriza plantillas con esa falla (o sin falla).
-        """
-        qs = cls.objects.filter(vigente=True, tipo=tipo)
-        if falla:
-            qs = qs.filter(models.Q(falla=falla) | models.Q(falla__isnull=True))
+#        cand = qs.filter(activo=activo).order_by("-version").first()
+#        if cand:
+#            return cand
 
-        cand = qs.filter(activo=activo).order_by("-version").first()
-        if cand:
-            return cand
+#        if activo.familia_id:
+#            cand = qs.filter(familia=activo.familia).order_by("-version").first()
+#            if cand:
+#                return cand
 
-        if activo.familia_id:
-            cand = qs.filter(familia=activo.familia).order_by("-version").first()
-            if cand:
-                return cand
-
-        return qs.filter(es_global=True).order_by("-version").first()
-
+#        return qs.filter(es_global=True).order_by("-version").first()
+# Pega esta línea en el lugar del bloque que borraste
+    objects = PlantillaChecklistManager()
 
 class PlantillaItem(models.Model):
     plantilla = models.ForeignKey(PlantillaChecklist, on_delete=models.CASCADE, related_name="items")
@@ -355,3 +382,24 @@ class RegistroCiclosSemanal(models.Model):
 
     def __str__(self):
         return f"{self.activo.codigo} - Año {self.año}, Semana {self.semana}: {self.ciclos} ciclos"
+
+
+# --- AÑADIR ESTE CÓDIGO NUEVO AL FINAL DEL ARCHIVO ---
+
+class EvidenciaDetalle(models.Model):
+    class TipoArchivo(models.TextChoices):
+        IMG = "IMG", "Imagen"
+        FILE = "FILE", "Archivo"
+
+    detalle_mantenimiento = models.ForeignKey(
+        DetalleMantenimiento, on_delete=models.CASCADE, related_name="evidencias"
+    )
+    subido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name="Subido por"
+    )
+    archivo = models.FileField(upload_to="evidencias_mantenimiento/%Y/%m/%d/")
+    tipo = models.CharField(max_length=4, choices=TipoArchivo.choices, default=TipoArchivo.FILE)
+    fecha_carga = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Evidencia para '{self.detalle_mantenimiento.tarea.nombre}' - OT #{self.detalle_mantenimiento.registro.id}"

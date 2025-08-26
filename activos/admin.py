@@ -12,17 +12,12 @@ from import_export.admin import ImportExportModelAdmin
 from .forms import ExcelUploadForm
 from .models import (
     Activo,
-    FamiliaActivo,
-    CatalogoFalla,
     TareaMantenimiento,
     RegistroMantenimiento,
     DetalleMantenimiento,
     RegistroCiclosSemanal,
     EstadoOT,
     TipoOT,
-    PlantillaChecklist,
-    PlantillaItem,
-    PlanPreventivo,
 )
 from core.models import HistorialOT
 
@@ -38,26 +33,10 @@ class ActivoResource(resources.ModelResource):
 @admin.register(Activo)
 class ActivoAdmin(ImportExportModelAdmin):
     resource_class = ActivoResource
-    list_display = ("codigo", "numero_activo", "nombre", "familia", "peso")
-    list_filter = ("familia",)
+    list_display = ("codigo", "numero_activo", "nombre", "peso")
     search_fields = ("codigo", "numero_activo", "nombre")
     ordering = ("codigo",)
     list_per_page = 25
-
-
-# ==========================
-#  Familias y Fallas
-# ==========================
-@admin.register(FamiliaActivo)
-class FamiliaActivoAdmin(admin.ModelAdmin):
-    list_display = ("nombre",)
-    search_fields = ("nombre",)
-
-
-@admin.register(CatalogoFalla)
-class CatalogoFallaAdmin(admin.ModelAdmin):
-    list_display = ("codigo", "nombre")
-    search_fields = ("codigo", "nombre")
 
 
 # ==========================
@@ -70,47 +49,14 @@ class TareaMantenimientoAdmin(admin.ModelAdmin):
 
 
 # ==========================
-#  Plantillas (con items)
-# ==========================
-class PlantillaItemInline(admin.TabularInline):
-    model = PlantillaItem
-    extra = 1
-    fields = ("orden", "tarea", "obligatorio", "requiere_evidencia", "notas_sugeridas")
-    autocomplete_fields = ("tarea",)
-    ordering = ("orden", "id")
-
-
-@admin.register(PlantillaChecklist)
-class PlantillaChecklistAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "tipo", "ambito", "falla", "version", "vigente", "creado_en")
-    list_filter = ("tipo", "vigente", "es_global", "familia", "activo", "falla")
-    search_fields = ("nombre", "activo__codigo", "familia__nombre", "falla__codigo", "falla__nombre")
-    autocomplete_fields = ("activo", "familia", "falla", "creado_por")
-    inlines = (PlantillaItemInline,)
-    ordering = ("-creado_en", "-version", "nombre")
-
-    def ambito(self, obj):
-        if obj.activo_id:
-            return f"ACT:{obj.activo.codigo}"
-        if obj.familia_id:
-            return f"FAM:{obj.familia.nombre}"
-        if obj.es_global:
-            return "GLOBAL"
-        return "—"
-
-    ambito.short_description = "Ámbito"
-
-
-# ==========================
 #  Inlines para OT
 # ==========================
 class DetalleInline(admin.TabularInline):
     model = DetalleMantenimiento
     extra = 0
-    fields = ("orden", "tarea", "obligatorio", "requiere_evidencia", "completado", "observaciones")
+    fields = ("tarea", "completado", "observaciones")
     autocomplete_fields = ("tarea",)
     show_change_link = True
-    ordering = ("orden", "id")
 
 
 class HistorialInline(admin.TabularInline):
@@ -132,8 +78,6 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
         "activo_codigo",
         "activo_nombre",
         "tipo",
-        "falla",
-        "plantilla_aplicada",
         "estado_badge",
         "asignado_a",
         "creado_por",
@@ -141,28 +85,14 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
         "porcentaje_avance_display",
         "checklist_btn",
     )
-    list_filter = ("estado", "tipo", "asignado_a", "falla", "plantilla_aplicada")
-    search_fields = (
-        "id",
-        "activo__codigo",
-        "activo__nombre",
-        "asignado_a__username",
-        "creado_por__username",
-        "falla__codigo",
-        "falla__nombre",
-    )
+    list_filter = ("estado", "tipo", "asignado_a")
+    search_fields = ("id", "activo__codigo", "activo__nombre", "asignado_a__username", "creado_por__username")
     date_hierarchy = "fecha_creacion"
     ordering = ("-fecha_creacion", "-id")
-    list_select_related = ("activo", "asignado_a", "creado_por", "completado_por", "falla", "plantilla_aplicada")
-    autocomplete_fields = ("activo", "asignado_a", "creado_por", "completado_por", "falla", "plantilla_aplicada")
+    list_select_related = ("activo", "asignado_a", "creado_por", "completado_por")
+    autocomplete_fields = ("activo", "asignado_a", "creado_por", "completado_por")
     inlines = (DetalleInline, HistorialInline)
-    actions = (
-        "action_aplicar_mejor_plantilla",
-        "action_generar_checklist_base",
-        "action_iniciar",
-        "action_en_revision",
-        "action_cerrar",
-    )
+    actions = ("action_generar_checklist_base", "action_iniciar", "action_en_revision", "action_cerrar")
 
     # ----- columnas auxiliares -----
     def activo_codigo(self, obj):
@@ -199,32 +129,7 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
     porcentaje_avance_display.short_description = "Avance"
 
     # ----- acciones masivas -----
-    def action_aplicar_mejor_plantilla(self, request, queryset):
-        """
-        Encuentra y aplica la mejor plantilla (Activo → Familia → Global; por falla cuando aplique)
-        recreando el checklist de cada OT seleccionada.
-        """
-        ok, sin = 0, []
-        for ot in queryset.select_related("activo", "activo__familia", "falla"):
-            plantilla = PlantillaChecklist.mejor_coincidencia(
-                activo=ot.activo, tipo=ot.tipo, falla=ot.falla
-            )
-            if plantilla:
-                ot.aplicar_plantilla(plantilla)
-                ok += 1
-            else:
-                sin.append(f"#{ot.id} ({ot.activo.codigo})")
-        if ok:
-            self.message_user(request, f"Plantilla aplicada en {ok} OTs.", level=messages.SUCCESS)
-        if sin:
-            self.message_user(request, "Sin plantilla para: " + ", ".join(sin), level=messages.WARNING)
-
-    action_aplicar_mejor_plantilla.short_description = "Aplicar mejor plantilla"
-
     def action_generar_checklist_base(self, request, queryset):
-        """
-        Fallback: genera checklist con todas las Tareas maestras (sin plantilla).
-        """
         tareas = list(TareaMantenimiento.objects.all())
         if not tareas:
             self.message_user(request, "No hay Tareas Maestras para generar checklist.", level=messages.WARNING)
@@ -234,16 +139,13 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
             existentes = set(
                 DetalleMantenimiento.objects.filter(registro=ot).values_list("tarea_id", flat=True)
             )
-            nuevos = [
-                DetalleMantenimiento(registro=ot, tarea=t, orden=0)
-                for t in tareas if t.id not in existentes
-            ]
+            nuevos = [DetalleMantenimiento(registro=ot, tarea=t) for t in tareas if t.id not in existentes]
             if nuevos:
                 DetalleMantenimiento.objects.bulk_create(nuevos)
                 creados += len(nuevos)
         self.message_user(request, f"Checklist generado/actualizado: {creados} ítems creados.", level=messages.SUCCESS)
 
-    action_generar_checklist_base.short_description = "Generar checklist base (sin plantilla)"
+    action_generar_checklist_base.short_description = "Generar checklist base"
 
     def _transition_bulk(self, request, queryset, nuevo_estado: str, success_msg: str):
         ok, fail = 0, []
@@ -275,27 +177,7 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
 
 
 # ==========================================
-#  Planes preventivos
-# ==========================================
-@admin.register(PlanPreventivo)
-class PlanPreventivoAdmin(admin.ModelAdmin):
-    list_display = (
-        "activo",
-        "nombre",
-        "plantilla",
-        "trigger",
-        "cada_n_dias",
-        "cada_n_ciclos",
-        "proxima_fecha",
-        "activo_en",
-    )
-    list_filter = ("trigger", "activo_en", "activo__familia")
-    search_fields = ("activo__codigo", "activo__nombre", "nombre", "plantilla__nombre")
-    autocomplete_fields = ("activo", "plantilla")
-
-
-# ==========================================
-#  Registro de Ciclos + Excel
+#  Admin para Registro de Ciclos + Excel
 # ==========================================
 @admin.register(RegistroCiclosSemanal)
 class RegistroCiclosSemanalAdmin(admin.ModelAdmin):
@@ -365,8 +247,7 @@ class RegistroCiclosSemanalAdmin(admin.ModelAdmin):
 # También visible por separado si quieres editar/filtrar suelto
 @admin.register(DetalleMantenimiento)
 class DetalleMantenimientoAdmin(admin.ModelAdmin):
-    list_display = ("registro", "tarea", "completado", "obligatorio", "requiere_evidencia", "orden")
-    list_filter = ("completado", "obligatorio", "requiere_evidencia", "tarea", "registro__estado")
+    list_display = ("registro", "tarea", "completado")
+    list_filter = ("completado", "tarea", "registro__estado")
     search_fields = ("registro__id", "tarea__nombre", "registro__activo__codigo")
-    ordering = ("registro", "orden", "id")
     autocomplete_fields = ("registro", "tarea")

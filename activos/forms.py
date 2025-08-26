@@ -6,6 +6,9 @@ from .models import (
     Activo,
     TareaMantenimiento,
     PlantillaChecklist,
+    RegistroMantenimiento, # <-- AÑADIR
+    EvidenciaDetalle,      # <-- AÑADIR
+    CatalogoFalla,  
 )
 
 
@@ -116,3 +119,28 @@ class GuardarComoPlantillaForm(forms.Form):
         initial=False,
         help_text="Marcar si quieres que esté disponible para cualquier activo.",
     )
+
+# --- AÑADIR ESTAS DOS NUEVAS CLASES ---
+
+class RegistroMantenimientoForm(forms.ModelForm):
+    """
+    Formulario para la creación y edición de Órdenes de Trabajo (OT).
+    """
+    class Meta:
+        model = RegistroMantenimiento
+        fields = ['activo', 'tipo', 'falla'] # Puedes añadir más campos si lo necesitas
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Hacemos que el campo de falla sea opcional
+        self.fields['falla'].required = False
+        self.fields['falla'].queryset = CatalogoFalla.objects.all().order_by('nombre')
+
+
+class EvidenciaDetalleForm(forms.ModelForm):
+    """
+    Formulario específico para subir un archivo de evidencia.
+    """
+    class Meta:
+        model = EvidenciaDetalle
+        fields = ['archivo']
