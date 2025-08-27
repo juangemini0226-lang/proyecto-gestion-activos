@@ -6,7 +6,8 @@ app_name = "activos"
 urlpatterns = [
     path("", views.ordenes_list, name="ordenes_list"),
     path("mis-tareas/", views.mis_tareas, name="mis_tareas"),
-    path("agendar/", views.agendar_mantenimiento, name="agendar_mantenimiento"),
+    path("agendar/", views.agendar_mantenimiento, name="agendar_mantenimiento"),  # Actualizado
+    path("crear-ot/", views.agendar_mantenimiento, name="crear_ot"),  # Nueva ruta para crear OT
 
     # Alias para lo que genera el lector QR:
     path("buscar/<str:codigo>/", views.redirect_buscar_a_detalle, name="buscar_activo"),

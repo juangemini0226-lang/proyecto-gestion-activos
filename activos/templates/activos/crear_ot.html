@@ -1,0 +1,13 @@
+<!-- activos/templates/activos/crear_ot.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Crear Nueva Orden de Trabajo (OT)</h1>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}  <!-- Renderiza todos los campos del formulario -->
+    <button type="submit" class="btn btn-primary">Crear OT</button>
+</form>
+
+{% endblock %}
