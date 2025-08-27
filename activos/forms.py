@@ -1,20 +1,40 @@
 # activos/forms.py
 from django import forms
 from django.db.models import Q
+from django.contrib.auth import get_user_model
 
 from .models import (
     Activo,
     TareaMantenimiento,
     PlantillaChecklist,
-    RegistroMantenimiento, # <-- AÑADIR
-    EvidenciaDetalle,      # <-- AÑADIR
-    CatalogoFalla,  
+    RegistroMantenimiento,  # <-- AÑADIDO
+    EvidenciaDetalle,       # <-- AÑADIDO
+    CatalogoFalla,          # <-- tu modelo de fallas
 )
 
+User = get_user_model()
 
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Utilidades
+# ──────────────────────────────────────────────────────────────────────────────
+def _operarios_queryset():
+    """
+    Devuelve el queryset de usuarios del grupo 'Operarios'.
+    Si el grupo no existe o está vacío, hace fallback a usuarios activos.
+    """
+    qs = User.objects.all()
+    try:
+        qs_grp = User.objects.filter(groups__name="Operarios")
+        if qs_grp.exists():
+            return qs_grp.order_by("username", "first_name", "last_name")
+    except Exception:
+        pass
+    return qs.filter(is_active=True).order_by("username", "first_name", "last_name")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Carga de Excel (odómetro)
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 class ExcelUploadForm(forms.Form):
     semana = forms.ChoiceField(label="Selecciona la Semana del Informe")
     archivo_excel = forms.FileField(label="Selecciona el archivo Excel de Odómetro")
@@ -28,9 +48,9 @@ class ExcelUploadForm(forms.Form):
         self.fields["semana"].choices = opciones_disponibles
 
 
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 # Añadir tarea rápida al checklist
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 class AddTareaRapidaForm(forms.Form):
     tarea_existente = forms.ModelChoiceField(
         queryset=TareaMantenimiento.objects.all().order_by("nombre"),
@@ -50,15 +70,16 @@ class AddTareaRapidaForm(forms.Form):
         return data
 
 
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 # Cargar una plantilla a una OT
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 class CargarPlantillaForm(forms.Form):
     """
-    Muestra sólo las plantillas aplicables al contexto:
-      - por tipo (requerido si se pasa)
-      - por falla (si está disponible en el modelo y se pasa)
-      - por ámbito: Global / Familia / Activo (si el modelo tiene 'familia')
+    Muestra solo las plantillas aplicables al contexto.
+    Compatible con los campos existentes:
+      - tipo (si se pasa)
+      - falla (si el modelo PlantillaChecklist lo tiene)
+      - ámbitos por es_global / familia / activo (si existen)
     """
     plantilla = forms.ModelChoiceField(
         queryset=PlantillaChecklist.objects.none(),
@@ -66,52 +87,57 @@ class CargarPlantillaForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
-        # Contexto que nos pasa la vista
         activo = kwargs.pop("activo", None)
         tipo = kwargs.pop("tipo", None)
-        falla = kwargs.pop("falla", None)  # opcional para futuro
+        falla = kwargs.pop("falla", None)  # opcional
         super().__init__(*args, **kwargs)
 
-        # Base: todas (o sólo vigentes si existe el campo)
         qs = PlantillaChecklist.objects.all()
+
+        # Si el modelo tiene 'vigente', filtramos a las vigentes
         if hasattr(PlantillaChecklist, "vigente"):
             qs = qs.filter(vigente=True)
 
-        # Filtro por tipo
-        if tipo:
+        # Filtro por tipo, si existe en el modelo
+        if tipo and hasattr(PlantillaChecklist, "tipo"):
             qs = qs.filter(tipo=tipo)
 
-        # Filtro por falla si existe el campo en el modelo
+        # Filtro por falla si el modelo tiene FK 'falla'
         if falla is not None and hasattr(PlantillaChecklist, "falla"):
             qs = qs.filter(Q(falla=falla) | Q(falla__isnull=True))
 
-        # Ámbito: Global / (Familia) / Activo
+        # Ámbito global / familia / activo (compatibilidad con tu esquema actual)
         if activo:
-            ambito_q = Q(es_global=True)
+            ambito_q = Q()
+            if hasattr(PlantillaChecklist, "es_global"):
+                ambito_q |= Q(es_global=True)
             if hasattr(PlantillaChecklist, "familia") and getattr(activo, "familia_id", None):
                 ambito_q |= Q(familia=activo.familia)
-            qs = qs.filter(ambito_q | Q(activo=activo))
+            # Si el modelo posee FK directo a 'activo', agregamos esa opción
+            if hasattr(PlantillaChecklist, "activo"):
+                ambito_q |= Q(activo=activo)
+            qs = qs.filter(ambito_q) if ambito_q else qs
         else:
-            qs = qs.filter(es_global=True)
+            if hasattr(PlantillaChecklist, "es_global"):
+                qs = qs.filter(es_global=True)
 
-        # Orden recomendado: global primero, luego versión (si existe) y nombre
+        # Orden recomendado
         order_by = []
         if hasattr(PlantillaChecklist, "es_global"):
             order_by.append("-es_global")
         if hasattr(PlantillaChecklist, "version"):
             order_by.append("-version")
         order_by.append("nombre")
-
         self.fields["plantilla"].queryset = qs.order_by(*order_by)
 
 
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 # Guardar checklist como plantilla
-# -----------------------------
+# ──────────────────────────────────────────────────────────────────────────────
 class GuardarComoPlantillaForm(forms.Form):
     """
-    Versión simple (modelo actual): nombre + es_global.
-    Si más adelante añades ámbitos por familia/falla, ampliamos aquí sin romper.
+    Versión simple: nombre + es_global.
+    (Si amplías a familia/falla, aquí añadimos esos campos sin romper compatibilidad.)
     """
     nombre = forms.CharField(max_length=120)
     es_global = forms.BooleanField(
@@ -120,21 +146,45 @@ class GuardarComoPlantillaForm(forms.Form):
         help_text="Marcar si quieres que esté disponible para cualquier activo.",
     )
 
-# --- AÑADIR ESTAS DOS NUEVAS CLASES ---
 
+# ──────────────────────────────────────────────────────────────────────────────
+# NUEVO: Asignación de OT (soluciona el ImportError en views)
+# ──────────────────────────────────────────────────────────────────────────────
+class AsignarOTForm(forms.Form):
+    """
+    Form genérico para asignar una OT a un operario.
+    Usamos un Form (no ModelForm) para no acoplarnos al nombre del campo en el modelo.
+    La vista decide si guarda en .asignado_a, .responsable, .ejecutor, etc.
+    """
+    operario = forms.ModelChoiceField(
+        queryset=_operarios_queryset(),
+        required=True,
+        label="Asignar a"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si quieres permitir vacío temporalmente:
+        # self.fields["operario"].empty_label = "— Selecciona un operario —"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OT: creación/edición y evidencia
+# ──────────────────────────────────────────────────────────────────────────────
 class RegistroMantenimientoForm(forms.ModelForm):
     """
     Formulario para la creación y edición de Órdenes de Trabajo (OT).
     """
     class Meta:
         model = RegistroMantenimiento
-        fields = ['activo', 'tipo', 'falla'] # Puedes añadir más campos si lo necesitas
+        fields = ['activo', 'tipo', 'falla']  # agrega más si lo necesitas
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Hacemos que el campo de falla sea opcional
-        self.fields['falla'].required = False
-        self.fields['falla'].queryset = CatalogoFalla.objects.all().order_by('nombre')
+        # Campo de falla opcional y ordenado
+        if 'falla' in self.fields:
+            self.fields['falla'].required = False
+            self.fields['falla'].queryset = CatalogoFalla.objects.all().order_by('nombre')
 
 
 class EvidenciaDetalleForm(forms.ModelForm):
@@ -144,3 +194,5 @@ class EvidenciaDetalleForm(forms.ModelForm):
     class Meta:
         model = EvidenciaDetalle
         fields = ['archivo']
+        # Si quisieras múltiples archivos:
+        # widgets = {'archivo': forms.ClearableFileInput(attrs={'multiple': True})}

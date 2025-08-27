@@ -18,6 +18,11 @@ from .models import (
     RegistroCiclosSemanal,
     EstadoOT,
     TipoOT,
+    FamiliaActivo,
+    CatalogoFalla,
+    PlantillaChecklist,
+    PlantillaItem,
+    EvidenciaDetalle,
 )
 from core.models import HistorialOT
 
@@ -33,10 +38,30 @@ class ActivoResource(resources.ModelResource):
 @admin.register(Activo)
 class ActivoAdmin(ImportExportModelAdmin):
     resource_class = ActivoResource
-    list_display = ("codigo", "numero_activo", "nombre", "peso")
+    list_display = ("codigo", "numero_activo", "nombre", "familia", "peso")
     search_fields = ("codigo", "numero_activo", "nombre")
+    list_filter = ("familia",)
     ordering = ("codigo",)
     list_per_page = 25
+
+
+# ==========================
+#  Familias de activos
+# ==========================
+@admin.register(FamiliaActivo)
+class FamiliaActivoAdmin(admin.ModelAdmin):
+    list_display = ("nombre",)
+    search_fields = ("nombre",)
+
+
+# ==========================
+#  Catálogo de fallas
+# ==========================
+@admin.register(CatalogoFalla)
+class CatalogoFallaAdmin(admin.ModelAdmin):
+    list_display = ("codigo", "nombre")
+    search_fields = ("codigo", "nombre")
+    # evitamos list_filter porque no hay familia/criticidad/activa
 
 
 # ==========================
@@ -49,12 +74,63 @@ class TareaMantenimientoAdmin(admin.ModelAdmin):
 
 
 # ==========================
+#  Plantillas de checklist
+# ==========================
+class PlantillaItemInline(admin.TabularInline):
+    model = PlantillaItem
+    extra = 0
+    fields = ("tarea",)  # en tu modelo no aparece 'requiere_evidencia' en el item
+    autocomplete_fields = ("tarea",)
+
+
+@admin.register(PlantillaChecklist)
+class PlantillaChecklistAdmin(admin.ModelAdmin):
+    list_display = (
+        "nombre",
+        "tipo",
+        "es_global",
+        "activo",
+        "familia",
+        "falla",
+        "version",
+        "vigente",
+        "creado_por",
+    )
+    list_filter = ("tipo", "es_global", "vigente", "familia", "falla", "activo")
+    search_fields = ("nombre",)
+    inlines = (PlantillaItemInline,)
+
+
+# ==========================
+#  Evidencias por detalle
+# ==========================
+@admin.register(EvidenciaDetalle)
+class EvidenciaDetalleAdmin(admin.ModelAdmin):
+    # tu modelo muestra: detalle, subido_por, archivo, tipo
+    list_display = ("id", "detalle_ref", "subido_por", "archivo", "tipo")
+    list_filter = ("tipo", "subido_por")
+    search_fields = ("archivo",)
+
+    def detalle_ref(self, obj):
+        # soporte si el campo se llama 'detalle' o 'detalle_mantenimiento'
+        return getattr(obj, "detalle", None) or getattr(obj, "detalle_mantenimiento", None)
+    detalle_ref.short_description = "Detalle"
+
+
+class EvidenciaInline(admin.TabularInline):
+    model = EvidenciaDetalle
+    extra = 0
+    fields = ("archivo", "tipo", "subido_por")  # quitamos 'descripcion' y 'creado'
+    # si prefieres setear subido_por automáticamente, puedes marcarlo readonly y asignarlo en save_model
+
+
+# ==========================
 #  Inlines para OT
 # ==========================
 class DetalleInline(admin.TabularInline):
     model = DetalleMantenimiento
     extra = 0
-    fields = ("tarea", "completado", "observaciones")
+    fields = ("tarea", "completado", "observaciones", "requiere_evidencia")
     autocomplete_fields = ("tarea",)
     show_change_link = True
 
@@ -79,53 +155,48 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
         "activo_nombre",
         "tipo",
         "estado_badge",
+        "falla_nombre",
         "asignado_a",
         "creado_por",
         "fecha_creacion",
         "porcentaje_avance_display",
         "checklist_btn",
     )
-    list_filter = ("estado", "tipo", "asignado_a")
+    list_filter = ("estado", "tipo", "asignado_a", "falla")
     search_fields = ("id", "activo__codigo", "activo__nombre", "asignado_a__username", "creado_por__username")
     date_hierarchy = "fecha_creacion"
     ordering = ("-fecha_creacion", "-id")
-    list_select_related = ("activo", "asignado_a", "creado_por", "completado_por")
-    autocomplete_fields = ("activo", "asignado_a", "creado_por", "completado_por")
+    list_select_related = ("activo", "asignado_a", "creado_por", "completado_por", "falla")
+    autocomplete_fields = ("activo", "asignado_a", "creado_por", "completado_por", "falla")
     inlines = (DetalleInline, HistorialInline)
     actions = ("action_generar_checklist_base", "action_iniciar", "action_en_revision", "action_cerrar")
 
     # ----- columnas auxiliares -----
     def activo_codigo(self, obj):
         return obj.activo.codigo
-
     activo_codigo.short_description = "Código"
 
     def activo_nombre(self, obj):
         return obj.activo.nombre
-
     activo_nombre.short_description = "Activo"
 
-    def estado_badge(self, obj):
-        color = {
-            "PEN": "secondary",
-            "PRO": "info",
-            "REV": "warning",
-            "CER": "success",
-        }.get(obj.estado, "secondary")
-        return format_html('<span class="badge text-bg-{}">{}</span>', color, obj.get_estado_display())
+    def falla_nombre(self, obj):
+        return getattr(getattr(obj, "falla", None), "nombre", "—")
+    falla_nombre.short_description = "Falla"
 
+    def estado_badge(self, obj):
+        color = {"PEN": "secondary", "PRO": "info", "REV": "warning", "CER": "success"}.get(obj.estado, "secondary")
+        return format_html('<span class="badge text-bg-{}">{}</span>', color, obj.get_estado_display())
     estado_badge.short_description = "Estado"
     estado_badge.admin_order_field = "estado"
 
     def checklist_btn(self, obj):
         url = reverse("activos:checklist_mantenimiento", args=[obj.id])
         return format_html('<a class="button" href="{}">Checklist</a>', url)
-
     checklist_btn.short_description = "Checklist"
 
     def porcentaje_avance_display(self, obj):
         return f"{obj.porcentaje_avance}%"
-
     porcentaje_avance_display.short_description = "Avance"
 
     # ----- acciones masivas -----
@@ -144,7 +215,6 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
                 DetalleMantenimiento.objects.bulk_create(nuevos)
                 creados += len(nuevos)
         self.message_user(request, f"Checklist generado/actualizado: {creados} ítems creados.", level=messages.SUCCESS)
-
     action_generar_checklist_base.short_description = "Generar checklist base"
 
     def _transition_bulk(self, request, queryset, nuevo_estado: str, success_msg: str):
@@ -162,17 +232,14 @@ class RegistroMantenimientoAdmin(admin.ModelAdmin):
 
     def action_iniciar(self, request, queryset):
         self._transition_bulk(request, queryset, EstadoOT.PRO, "OTs iniciadas")
-
     action_iniciar.short_description = "Iniciar (PEN → PRO)"
 
     def action_en_revision(self, request, queryset):
         self._transition_bulk(request, queryset, EstadoOT.REV, "OTs enviadas a revisión")
-
     action_en_revision.short_description = "Enviar a revisión (PRO → REV)"
 
     def action_cerrar(self, request, queryset):
         self._transition_bulk(request, queryset, EstadoOT.CER, "OTs cerradas")
-
     action_cerrar.short_description = "Cerrar (REV → CER)"
 
 
@@ -204,7 +271,6 @@ class RegistroCiclosSemanalAdmin(admin.ModelAdmin):
 
                 try:
                     df = pd.read_excel(excel_file, sheet_name="Odometro", header=4, engine="openpyxl")
-                    # Filtra filas de advertencia y sólo MOLD
                     df = df[~df["NUMERO ACTIVO"].astype(str).str.contains("El Activo de EAM", na=False)]
                     df_moldes = df[df["TIPO ACTIVO"] == "MOLD"].copy()
 
@@ -244,10 +310,13 @@ class RegistroCiclosSemanalAdmin(admin.ModelAdmin):
         return render(request, "admin/carga_odometro.html", {"form": form, "title": "Cargar Odómetro"})
 
 
-# También visible por separado si quieres editar/filtrar suelto
+# ==========================
+#  Detalle + Evidencias
+# ==========================
 @admin.register(DetalleMantenimiento)
 class DetalleMantenimientoAdmin(admin.ModelAdmin):
-    list_display = ("registro", "tarea", "completado")
-    list_filter = ("completado", "tarea", "registro__estado")
+    list_display = ("registro", "tarea", "completado", "requiere_evidencia")
+    list_filter = ("completado", "requiere_evidencia", "tarea", "registro__estado")
     search_fields = ("registro__id", "tarea__nombre", "registro__activo__codigo")
     autocomplete_fields = ("registro", "tarea")
+    inlines = (EvidenciaInline,)

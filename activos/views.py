@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.utils import timezone
-
+from django.urls import reverse
 # --- Imports de Modelos (Organizados) ---
 from .models import (
     Activo,
@@ -26,6 +26,10 @@ from .forms import (
     AsignarOTForm, # Se movió a forms.py, asumimos que está ahí
 )
 from horometro.models import AlertaMantenimiento, LecturaHorometro
+
+
+def redirect_buscar_a_detalle(request, codigo: str):
+    return redirect("activos:detalle_activo_por_codigo", codigo=codigo)
 
 # ===================== Helpers de permisos =====================
 def es_supervisor(u):
@@ -268,3 +272,31 @@ def cambiar_estado_ot(request, pk: int):
 
     messages.success(request, f"OT #{ot.id} ahora está en '{ot.get_estado_display()}'.")
     return redirect("activos:ordenes_list")
+
+
+def detalle_activo_por_codigo(request, codigo: str):
+    """
+    Detalle de Activo buscado por su 'codigo'.
+    Muestra además las OTs recientes vinculadas al activo.
+    """
+    activo = get_object_or_404(Activo, codigo=codigo)
+
+    ots = (
+        RegistroMantenimiento.objects
+        .filter(activo=activo)
+        .select_related("activo")
+        .order_by("-id")[:20]
+    )
+
+    ctx = {"activo": activo, "ots": ots}
+    return render(request, "activos/detalle_activo.html", ctx)
+
+def iniciar_mantenimiento(request, activo_id: int):
+    """
+    Wrapper liviano: valida que el activo exista y redirige a la vista de agendar
+    con el activo preseleccionado por querystring (?activo=<id>).
+    Evita acoplarse a campos específicos de RegistroMantenimiento.
+    """
+    get_object_or_404(Activo, pk=activo_id)
+    url = f"{reverse('activos:agendar_mantenimiento')}?activo={activo_id}"
+    return redirect(url)

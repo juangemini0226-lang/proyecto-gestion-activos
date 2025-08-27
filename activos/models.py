@@ -7,17 +7,13 @@ from django.utils import timezone
 class TareaMantenimiento(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre de la Tarea")
     descripcion = models.TextField(blank=True, help_text="Instrucciones detalladas de la tarea.")
-
-    def __str__(self):
-        return self.nombre
+    def __str__(self): return self.nombre
 
 
-# -------- NUEVO: Familias de activos (para plantillas por familia) --------
+# -------- Familias de activos --------
 class FamiliaActivo(models.Model):
     nombre = models.CharField(max_length=120, unique=True)
-
-    def __str__(self):
-        return self.nombre
+    def __str__(self): return self.nombre
 
 
 # -------- Activo --------
@@ -26,75 +22,97 @@ class Activo(models.Model):
     numero_activo = models.CharField(max_length=255, verbose_name="# Activo")
     nombre = models.CharField(max_length=255, verbose_name="Nombre")
     peso = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso")
-
-    # NUEVO: familia
-    familia = models.ForeignKey(
-        "FamiliaActivo", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos"
-    )
-
-    def __str__(self):
-        return f"{self.codigo} - {self.nombre}"
+    familia = models.ForeignKey("FamiliaActivo", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos")
+    def __str__(self): return f"{self.codigo} - {self.nombre}"
 
 
-# -------- NUEVO: Catálogo de fallas (para correctivos) --------
+# -------- Catálogo de fallas --------
 class CatalogoFalla(models.Model):
     codigo = models.CharField(max_length=20, unique=True)
     nombre = models.CharField(max_length=120)
     descripcion = models.TextField(blank=True)
-
-    def __str__(self):
-        return f"{self.codigo} - {self.nombre}"
+    def __str__(self): return f"{self.codigo} - {self.nombre}"
 
 
-# -------- Choices de dominio --------
+# -------- Choices --------
 class EstadoOT(models.TextChoices):
     PEN = "PEN", "Pendiente"
     PRO = "PRO", "En Progreso"
     REV = "REV", "Pendiente Revisión"
-    COM = "COM", "Completada"  # <-- Cambia 'CER', 'Cerrada' por esto
-
+    CER = "CER", "Cerrada"
 
 class TipoOT(models.TextChoices):
     PRE = "PRE", "Preventivo"
     COR = "COR", "Correctivo"
 
+class PrioridadOT(models.TextChoices):
+    NONE = "NONE", "Ninguna"
+    BAJA = "BAJA", "Baja"
+    MEDI = "MEDI", "Media"
+    ALTA = "ALTA", "Alta"
 
-# -------- Registro de mantenimiento (UNIFICADO) --------
+class RecurrenciaOT(models.TextChoices):
+    NONE = "NONE", "No se repite"
+    DAIL = "DAIL", "Diario"
+    WEEK = "WEEK", "Semanal"
+    MDATE = "MDATE", "Mensualmente por fecha"
+    MDOW = "MDOW", "Mensualmente por día de la semana"
+    YEAR = "YEAR", "Anual"
+
+
+# -------- Ubicación (jerárquica opcional) --------
+class Ubicacion(models.Model):
+    nombre = models.CharField(max_length=120)
+    padre = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="hijos")
+
+    class Meta:
+        verbose_name = "Ubicación"
+        verbose_name_plural = "Ubicaciones"
+
+    def __str__(self):
+        return f"{self.padre} / {self.nombre}" if self.padre else self.nombre
+
+
+# -------- Registro de mantenimiento --------
 class RegistroMantenimiento(models.Model):
     activo = models.ForeignKey(Activo, on_delete=models.CASCADE, related_name="mantenimientos")
 
     estado = models.CharField(max_length=3, choices=EstadoOT.choices, default=EstadoOT.PEN)
     tipo = models.CharField(max_length=3, choices=TipoOT.choices, default=TipoOT.PRE)
 
-    # NUEVO: para correctivas y trazabilidad de plantilla usada
+    # ---- Campos “Nueva OT” (inspirado MaintainX) ----
+    titulo = models.CharField(max_length=160, default="", blank=False)
+    descripcion = models.TextField(blank=True, default="")
+    prioridad = models.CharField(max_length=4, choices=PrioridadOT.choices, default=PrioridadOT.NONE)
+    fecha_inicio = models.DateField(null=True, blank=True)
+    vencimiento = models.DateField(null=True, blank=True)
+    recurrencia = models.CharField(max_length=5, choices=RecurrenciaOT.choices, default=RecurrenciaOT.NONE)
+    tiempo_estimado_minutos = models.PositiveIntegerField(default=0)
+    ubicacion = models.ForeignKey(Ubicacion, null=True, blank=True, on_delete=models.SET_NULL, related_name="ordenes")
+
+    # Correctivos / trazabilidad
     falla = models.ForeignKey("CatalogoFalla", null=True, blank=True, on_delete=models.SET_NULL, related_name="ots")
     plantilla_aplicada = models.ForeignKey(
         "PlantillaChecklist", null=True, blank=True, on_delete=models.SET_NULL, related_name="ots_usadas"
     )
 
-    # Fechas del ciclo de vida
+    # Fechas de ciclo de vida
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_inicio_ejecucion = models.DateTimeField(null=True, blank=True)
     fecha_fin_ejecucion = models.DateTimeField(null=True, blank=True)
 
-    # Cierre / lectura (para baseline en horómetro si aplica)
+    # Cierre / lecturas
     fecha_cierre = models.DateTimeField(null=True, blank=True)
     anio_ejecucion = models.PositiveSmallIntegerField(null=True, blank=True)
     semana_ejecucion = models.PositiveSmallIntegerField(null=True, blank=True)
     lectura_ejecucion = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     # Usuarios
-    creado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="ordenes_creadas"
-    )
-    asignado_a = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="tareas_asignadas"
-    )
-    completado_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="tareas_completadas"
-    )
+    creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="ordenes_creadas")
+    asignado_a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="tareas_asignadas")
+    completado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="tareas_completadas")
 
-    # ---------- Reglas de transición y utilidades ----------
+    # ---- Lógica de estados ----
     def can_transition_to(self, nuevo: str) -> bool:
         mapa = {
             EstadoOT.PEN: {EstadoOT.PRO},
@@ -105,24 +123,17 @@ class RegistroMantenimiento(models.Model):
         return nuevo in mapa.get(self.estado, set())
 
     def transition_to(self, nuevo: str, usuario=None, motivo: str = ""):
-        """
-        Punto único de cambio de estado (usar en vistas/servicios).
-        Valida transición y fija sellos mínimos.
-        """
         if nuevo == self.estado:
             return
         if not self.can_transition_to(nuevo):
             raise ValueError(f"Transición inválida: {self.estado} → {nuevo}")
 
-        # Reglas mínimas por transición
         if nuevo == EstadoOT.PRO and not self.asignado_a:
             raise ValueError("Para pasar a 'PRO' la OT debe estar asignada a un usuario.")
-
         if nuevo == EstadoOT.PRO and not self.fecha_inicio_ejecucion:
             self.fecha_inicio_ejecucion = timezone.now()
 
         if nuevo == EstadoOT.REV:
-            # Validar checklist completo antes de revisión
             if self.porcentaje_avance < 100:
                 raise ValueError("No puede pasar a revisión: el checklist no está completo.")
             if not self.fecha_fin_ejecucion:
@@ -135,10 +146,6 @@ class RegistroMantenimiento(models.Model):
         self.save(update_fields=["estado", "fecha_inicio_ejecucion", "fecha_fin_ejecucion"])
 
     def cerrar(self, usuario=None, motivo: str = ""):
-        """
-        Cierre formal de la OT. Fija fecha_cierre y completado_por.
-        Efectos colaterales (baseline/alertas) se manejan en señales/servicios.
-        """
         ahora = timezone.now()
         if not self.fecha_inicio_ejecucion:
             self.fecha_inicio_ejecucion = ahora
@@ -150,30 +157,22 @@ class RegistroMantenimiento(models.Model):
             self.completado_por = usuario
 
         self.estado = EstadoOT.CER
-        self.save(
-            update_fields=[
-                "estado",
-                "fecha_inicio_ejecucion",
-                "fecha_fin_ejecucion",
-                "fecha_cierre",
-                "completado_por",
-            ]
-        )
+        self.save(update_fields=[
+            "estado", "fecha_inicio_ejecucion", "fecha_fin_ejecucion", "fecha_cierre", "completado_por"
+        ])
 
-    # NUEVO: aplicar una plantilla a la OT (recrea el checklist)
+    # Aplicar plantilla → recrea checklist
     def aplicar_plantilla(self, plantilla: "PlantillaChecklist"):
-        items = []
-        for it in plantilla.items.select_related("tarea").all():
-            items.append(
-                DetalleMantenimiento(
-                    registro=self,
-                    tarea=it.tarea,
-                    obligatorio=it.obligatorio,
-                    requiere_evidencia=getattr(it, "requiere_evidencia", False),
-                    orden=it.orden,
-                )
+        items = [
+            DetalleMantenimiento(
+                registro=self,
+                tarea=it.tarea,
+                obligatorio=it.obligatorio,
+                requiere_evidencia=getattr(it, "requiere_evidencia", False),
+                orden=it.orden,
             )
-        # Limpiar y cargar
+            for it in plantilla.items.select_related("tarea").all()
+        ]
         DetalleMantenimiento.objects.filter(registro=self).delete()
         if items:
             DetalleMantenimiento.objects.bulk_create(items, batch_size=200)
@@ -182,43 +181,38 @@ class RegistroMantenimiento(models.Model):
 
     @property
     def porcentaje_avance(self) -> int:
-        """
-        % de avance del checklist (DetalleMantenimiento.completado).
-        """
-        total = getattr(self, "detalles", None).count() if hasattr(self, "detalles") else 0
+        total = self.detalles.count()
         if total == 0:
             return 0
         hechos = self.detalles.filter(completado=True).count()
         return round(100 * hechos / total)
 
     def __str__(self):
-        return f"{self.get_tipo_display()} de {self.activo.nombre} - {self.get_estado_display()}"
+        base = f"{self.get_tipo_display()} de {self.activo.nombre} - {self.get_estado_display()}"
+        return f"[{self.titulo}] {base}" if self.titulo else base
 
     class Meta:
         indexes = [
             models.Index(fields=["estado"]),
             models.Index(fields=["tipo"]),
+            models.Index(fields=["prioridad"]),
             models.Index(fields=["-fecha_creacion"]),
             models.Index(fields=["-fecha_inicio_ejecucion"]),
             models.Index(fields=["-fecha_cierre"]),
+            models.Index(fields=["vencimiento"]),
             models.Index(fields=["activo"]),
             models.Index(fields=["asignado_a"]),
+            models.Index(fields=["ubicacion"]),
         ]
         ordering = ["-fecha_creacion", "-id"]
 
 
 # -------- Detalle de mantenimiento --------
 class DetalleMantenimiento(models.Model):
-    registro = models.ForeignKey(
-        RegistroMantenimiento,
-        on_delete=models.CASCADE,
-        related_name="detalles",
-    )
+    registro = models.ForeignKey(RegistroMantenimiento, on_delete=models.CASCADE, related_name="detalles")
     tarea = models.ForeignKey(TareaMantenimiento, on_delete=models.CASCADE)
     completado = models.BooleanField(default=False)
     observaciones = models.TextField(blank=True, null=True, verbose_name="Observaciones")
-
-    # NUEVO: metadatos venidos de la plantilla
     obligatorio = models.BooleanField(default=False)
     requiere_evidencia = models.BooleanField(default=False)
     orden = models.PositiveSmallIntegerField(default=0)
@@ -226,53 +220,34 @@ class DetalleMantenimiento(models.Model):
     class Meta:
         ordering = ["orden", "id"]
 
-    def __str__(self):
-        return f"Tarea '{self.tarea.nombre}' para registro {self.registro.id}"
+    def __str__(self): return f"Tarea '{self.tarea.nombre}' para registro {self.registro.id}"
 
-# --- AÑADIR ESTE MANAGER JUSTO ANTES DE 'PlantillaChecklist' ---
 
+# -------- Manager de plantillas --------
 class PlantillaChecklistManager(models.Manager):
     def get_best_template_for(self, *, activo: Activo, tipo: str, falla: "CatalogoFalla" = None):
         qs = self.filter(vigente=True, tipo=tipo)
-        
-        # 1. Prioridad: Falla específica
         if falla:
             template = qs.filter(falla=falla).order_by("-version").first()
-            if template:
-                return template
-
-        # 2. Prioridad: Activo específico
+            if template: return template
         template = qs.filter(activo=activo).order_by("-version").first()
-        if template:
-            return template
-
-        # 3. Prioridad: Familia del Activo
+        if template: return template
         if activo.familia:
             template = qs.filter(familia=activo.familia).order_by("-version").first()
-            if template:
-                return template
-
-        # 4. Prioridad: Fallback Global
+            if template: return template
         return qs.filter(es_global=True).order_by("-version").first()
 
 
-# -------- Plantillas de checklist (para cargar y reutilizar) --------
+# -------- Plantillas de checklist --------
 class PlantillaChecklist(models.Model):
     nombre = models.CharField(max_length=120)
     tipo = models.CharField(max_length=3, choices=TipoOT.choices, default=TipoOT.PRE)
-
-    # Alcance
     activo = models.ForeignKey(Activo, null=True, blank=True, on_delete=models.CASCADE, related_name="plantillas")
     familia = models.ForeignKey("FamiliaActivo", null=True, blank=True, on_delete=models.CASCADE, related_name="plantillas")
     es_global = models.BooleanField(default=False, help_text="Disponible para cualquier activo")
-
-    # Opcional por falla (útil en correctivos)
     falla = models.ForeignKey("CatalogoFalla", null=True, blank=True, on_delete=models.SET_NULL, related_name="plantillas")
-
-    # Versionado / vigencia
     version = models.PositiveIntegerField(default=1)
     vigente = models.BooleanField(default=True)
-
     creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     creado_en = models.DateTimeField(auto_now_add=True)
 
@@ -297,29 +272,9 @@ class PlantillaChecklist(models.Model):
             scope = "SIN ÁMBITO"
         falla = f" · Falla:{self.falla.codigo}" if self.falla_id else ""
         return f"{self.nombre} ({self.get_tipo_display()} · {scope}{falla}) v{self.version}"
-# --- DENTRO de PlantillaChecklist, REEMPLAZA el método 'mejor_coincidencia' POR ESTO ---
-#    @classmethod
-#    def mejor_coincidencia(cls, *, activo, tipo, falla=None):
-#        """
-#        Prioridad: Activo → Familia → Global.
-#        Si 'falla' viene, prioriza plantillas con esa falla (o sin falla).
-#        """
-#        qs = cls.objects.filter(vigente=True, tipo=tipo)
-#        if falla:
-#            qs = qs.filter(models.Q(falla=falla) | models.Q(falla__isnull=True))
 
-#        cand = qs.filter(activo=activo).order_by("-version").first()
-#        if cand:
-#            return cand
-
-#        if activo.familia_id:
-#            cand = qs.filter(familia=activo.familia).order_by("-version").first()
-#            if cand:
-#                return cand
-
-#        return qs.filter(es_global=True).order_by("-version").first()
-# Pega esta línea en el lugar del bloque que borraste
     objects = PlantillaChecklistManager()
+
 
 class PlantillaItem(models.Model):
     plantilla = models.ForeignKey(PlantillaChecklist, on_delete=models.CASCADE, related_name="items")
@@ -327,18 +282,16 @@ class PlantillaItem(models.Model):
     obligatorio = models.BooleanField(default=False)
     orden = models.PositiveSmallIntegerField(default=0)
     notas_sugeridas = models.TextField(blank=True)
-    # NUEVO: si la evidencia es obligatoria (foto/archivo, lo usarás en la vista)
     requiere_evidencia = models.BooleanField(default=False)
 
     class Meta:
         unique_together = (("plantilla", "tarea"),)
         ordering = ["orden", "id"]
 
-    def __str__(self):
-        return f"{self.plantilla.nombre} · {self.tarea.nombre}"
+    def __str__(self): return f"{self.plantilla.nombre} · {self.tarea.nombre}"
 
 
-# -------- Plan preventivo (mínimo viable) --------
+# -------- Plan preventivo --------
 class PlanPreventivo(models.Model):
     class Trigger(models.TextChoices):
         DIAS = "DIAS", "Por tiempo"
@@ -349,22 +302,16 @@ class PlanPreventivo(models.Model):
     nombre = models.CharField(max_length=120)
     plantilla = models.ForeignKey(PlantillaChecklist, on_delete=models.PROTECT, limit_choices_to={"tipo": TipoOT.PRE})
     trigger = models.CharField(max_length=4, choices=Trigger.choices, default=Trigger.DIAS)
-
-    # Si trigger=DIAS
     cada_n_dias = models.PositiveIntegerField(null=True, blank=True)
-
-    # Si trigger=CICL
     cada_n_ciclos = models.PositiveIntegerField(null=True, blank=True)
-
     ultima_ejecucion = models.DateTimeField(null=True, blank=True)
     proxima_fecha = models.DateField(null=True, blank=True)
     activo_en = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f"PM '{self.nombre}' ({self.get_trigger_display()}) - {self.activo.codigo}"
+    def __str__(self): return f"PM '{self.nombre}' ({self.get_trigger_display()}) - {self.activo.codigo}"
 
 
-# -------- Historial de ciclos (si lo sigues usando) --------
+# -------- Historial de ciclos --------
 class RegistroCiclosSemanal(models.Model):
     activo = models.ForeignKey(Activo, on_delete=models.CASCADE, related_name="historial_ciclos")
     año = models.PositiveIntegerField()
@@ -380,26 +327,39 @@ class RegistroCiclosSemanal(models.Model):
             models.Index(fields=["-fecha_carga"]),
         ]
 
-    def __str__(self):
-        return f"{self.activo.codigo} - Año {self.año}, Semana {self.semana}: {self.ciclos} ciclos"
+    def __str__(self): return f"{self.activo.codigo} - Año {self.año}, Semana {self.semana}: {self.ciclos} ciclos"
 
 
-# --- AÑADIR ESTE CÓDIGO NUEVO AL FINAL DEL ARCHIVO ---
-
+# -------- Evidencias por detalle --------
 class EvidenciaDetalle(models.Model):
     class TipoArchivo(models.TextChoices):
         IMG = "IMG", "Imagen"
         FILE = "FILE", "Archivo"
 
-    detalle_mantenimiento = models.ForeignKey(
-        DetalleMantenimiento, on_delete=models.CASCADE, related_name="evidencias"
-    )
-    subido_por = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name="Subido por"
-    )
+    detalle_mantenimiento = models.ForeignKey(DetalleMantenimiento, on_delete=models.CASCADE, related_name="evidencias")
+    subido_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name="Subido por")
     archivo = models.FileField(upload_to="evidencias_mantenimiento/%Y/%m/%d/")
     tipo = models.CharField(max_length=4, choices=TipoArchivo.choices, default=TipoArchivo.FILE)
     fecha_carga = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Evidencia para '{self.detalle_mantenimiento.tarea.nombre}' - OT #{self.detalle_mantenimiento.registro.id}"
+
+
+# -------- Adjuntos a nivel OT --------
+def ot_adjuntos_path(instance, filename):
+    from datetime import date
+    today = date.today()
+    return f"ot_adjuntos/{today:%Y/%m/%d}/OT_{instance.registro_id}/{filename}"
+
+class AdjuntoWO(models.Model):
+    registro = models.ForeignKey("RegistroMantenimiento", on_delete=models.CASCADE, related_name="adjuntos")
+    archivo = models.FileField(upload_to=ot_adjuntos_path)
+    subido_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="wo_adjuntos")
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Adjunto de OT"
+        verbose_name_plural = "Adjuntos de OT"
+
+    def __str__(self): return f"Adjunto OT#{self.registro_id} - {self.archivo.name}"

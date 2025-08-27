@@ -1,50 +1,86 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalle del Activo: {{ activo.codigo }}</title>
-    <style>
-        body { font-family: sans-serif; margin: 2em; background-color: #f4f4f4; }
-        .card {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            padding: 2em;
-            max-width: 600px;
-            margin: auto;
-        }
-        h1 { color: #333; }
-        p { color: #555; line-height: 1.6; }
-        strong { color: #000; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>Ficha del Activo: <strong>{{ activo.codigo }}</strong></h1>
-        <hr>
-        <p><strong>Nombre:</strong> {{ activo.nombre }}</p>
-        <p><strong>Descripción:</strong> {{ activo.descripcion }}</p>
-        <p><strong>Categoría:</strong> {{ activo.categoria }}</p>
-        <p><strong>Estado:</strong> {{ activo.estado }}</p>
-        <p><strong>Ubicación:</strong> {{ activo.ubicacion }}</p>
-    </div>
+{% extends "core/base.html" %}
+{% block content %}
+<div class="container py-4">
 
-    <div class="card" style="margin-top: 2em;">
-        <h2>Checklist de Mantenimiento</h2>
-        <hr>
-        <ul>
-            <li>Limpiar cavidades del molde.</li>
-            <li>Revisar sistema de expulsión.</li>
-            <li>Verificar estado de las columnas guía.</li>
-            <li>Engrasar componentes móviles.</li>
+  <!-- Ficha del activo -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <h1 class="h5 mb-3">Activo <strong>{{ activo.codigo }}</strong> — {{ activo.nombre }}</h1>
+      <dl class="row mb-0">
+        {% if activo.descripcion %}
+          <dt class="col-sm-3">Descripción</dt><dd class="col-sm-9">{{ activo.descripcion }}</dd>
+        {% endif %}
+        {% if activo.familia %}
+          <dt class="col-sm-3">Familia</dt><dd class="col-sm-9">{{ activo.familia }}</dd>
+        {% endif %}
+        {% if activo.categoria %}
+          <dt class="col-sm-3">Categoría</dt><dd class="col-sm-9">{{ activo.categoria }}</dd>
+        {% endif %}
+        {% if activo.estado %}
+          <dt class="col-sm-3">Estado</dt>
+          <dd class="col-sm-9">
+            {{ activo.get_estado_display|default:activo.estado }}
+          </dd>
+        {% endif %}
+        {% if activo.ubicacion %}
+          <dt class="col-sm-3">Ubicación</dt><dd class="col-sm-9">{{ activo.ubicacion }}</dd>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  <!-- Acciones rápidas -->
+  <div class="d-flex gap-2 mb-4">
+    <!-- URL definida en tus urls: activos:iniciar_mantenimiento/<int:activo_id>/ -->
+    <a href="{% url 'activos:iniciar_mantenimiento' activo.id %}" class="btn btn-success">
+      <i class="bi bi-play-circle me-1"></i> Iniciar mantenimiento
+    </a>
+    <!-- Si tienes ruta al escáner, cámbiala a tu namespace real -->
+    <a href="/escaner/" class="btn btn-outline-secondary">
+      <i class="bi bi-qr-code-scan me-1"></i> Escanear otro activo
+    </a>
+  </div>
+
+  <!-- Órdenes recientes de este activo -->
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h2 class="h6 mb-3">Órdenes recientes</h2>
+      {% if ots %}
+        <ul class="list-group list-group-flush">
+          {% for ot in ots %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold">
+                  OT #{{ ot.id }}
+                  <span class="text-muted small ms-2">{{ ot.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="small text-muted">
+                  Estado:
+                  {% if ot.estado == 'PEN' %}
+                    <span class="badge text-bg-secondary">Pendiente</span>
+                  {% elif ot.estado == 'PRO' %}
+                    <span class="badge text-bg-info">En Progreso</span>
+                  {% elif ot.estado == 'REV' %}
+                    <span class="badge text-bg-warning">Pend. Revisión</span>
+                  {% elif ot.estado == 'COM' %}
+                    <span class="badge text-bg-success">Completada</span>
+                  {% else %}
+                    {{ ot.get_estado_display|default:ot.estado }}
+                  {% endif %}
+                </div>
+              </div>
+              <!-- Tu URL estandarizada: mantenimiento/<int:pk>/checklist/ -->
+              <a href="{% url 'activos:checklist_mantenimiento' ot.id %}" class="btn btn-sm btn-primary">
+                Abrir checklist
+              </a>
+            </li>
+          {% endfor %}
         </ul>
-        <button style="width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer;">
-            <a href="{% url 'activos:iniciar_mantenimiento' activo.id %}" class="btn btn-primary mt-auto">Iniciar Mantenimiento</a>
-        </button>
+      {% else %}
+        <p class="text-muted mb-0">Sin órdenes recientes para este activo.</p>
+      {% endif %}
     </div>
-    <div style="text-align: center; margin-top: 2em;">
-        <a href="/escaner/">Escanear otro activo</a>
-    </div>
-</body>
-</html>
+  </div>
+
+</div>
+{% endblock %}
