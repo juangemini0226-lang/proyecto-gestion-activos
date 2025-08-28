@@ -32,6 +32,14 @@ def redirect_buscar_a_detalle(request, codigo: str):
     return redirect("activos:detalle_activo_por_codigo", codigo=codigo)
 
 
+@login_required
+def activos_list(request):
+    """Listado sencillo de activos."""
+    activos = Activo.objects.all()
+    context = {"activos": activos, "section": "activos"}
+    return render(request, "activos/activos_list.html", context)
+
+
 # ===================== Helpers de permisos =====================
 def es_supervisor(u):
     return u.is_superuser or u.groups.filter(name__iexact="Supervisor").exists()
@@ -77,6 +85,7 @@ def ordenes_list(request):
     context = {
         "page_obj": page_obj,
         "ordenes": page_obj.object_list,
+        "section": "mantenimiento",
     }
     return render(request, "activos/ordenes_list.html", context)
 
@@ -103,59 +112,6 @@ def agendar_mantenimiento(request):
 
     return render(request, "activos/agendar_mantenimiento.html", {"form": form})
 
-
-@login_required
-def checklist_mantenimiento(request, pk: int):
-    """
-    Vista del checklist de la OT. Maneja la actualización y la subida de evidencias.
-    """
-    ot = get_object_or_404(RegistroMantenimiento, pk=pk)
-    _ensure_checklist_exists(ot)
-    
-    items_checklist = ot.detalles.select_related("tarea").prefetch_related("evidencias").all()
-
-    if request.method == "POST":
-        # Acción: Subir una evidencia
-        if 'upload_evidencia' in request.POST:
-            item_id = request.POST.get('detalle_id')
-            item_detalle = get_object_or_404(DetalleMantenimiento, pk=item_id)
-            form_evidencia = EvidenciaDetalleForm(request.POST, request.FILES)
-
-            if form_evidencia.is_valid():
-                evidencia = form_evidencia.save(commit=False)
-                evidencia.detalle_mantenimiento = item_detalle
-                evidencia.subido_por = request.user
-                archivo_nombre = evidencia.archivo.name.lower()
-                evidencia.tipo = 'IMG' if archivo_nombre.endswith(('.png', '.jpg', '.jpeg')) else 'FILE'
-                evidencia.save()
-                messages.success(request, f"Evidencia subida para '{item_detalle.tarea.nombre}'.")
-            else:
-                messages.error(request, "Error al subir la evidencia.")
-            return redirect("activos:checklist_mantenimiento", pk=pk)
-
-        # Acción: Guardar el estado de los checkboxes y observaciones
-        elif "guardar_checklist" in request.POST:
-            for item in items_checklist:
-                item.completado = f'tarea_{item.id}' in request.POST
-                item.observaciones = (request.POST.get(f"obs_{item.id}") or "").strip()
-                item.save(update_fields=["completado", "observaciones"])
-            messages.success(request, "Checklist actualizado.")
-            return redirect("activos:checklist_mantenimiento", pk=pk)
-
-    # Preparar formularios para el contexto
-    context = {
-        "ot": ot,
-        "items_checklist": items_checklist,
-        "upload_form": EvidenciaDetalleForm(),
-        "cargar_form": CargarPlantillaForm(activo=ot.activo, tipo=ot.tipo),
-        "guardar_form": GuardarComoPlantillaForm(),
-        "add_tarea_form": AddTareaRapidaForm(),
-    }
-    return render(request, "activos/checklist_mantenimiento.html", context)
-
-
-@login_required
-@user_passes_test(es_supervisor)
 def cambiar_estado_ot(request, pk: int):
     """Cambia el estado de una OT de forma segura."""
     ot = get_object_or_404(RegistroMantenimiento, pk=pk)
@@ -181,7 +137,11 @@ def mis_tareas(request):
         .select_related("activo")
         .order_by("fecha_creacion")
     )
-    return render(request, "activos/mis_tareas.html", {"ordenes": qs})
+    return render(
+        request,
+        "activos/mis_tareas.html",
+        {"ordenes": qs, "section": "tareas"},
+    )
 
 
 @login_required

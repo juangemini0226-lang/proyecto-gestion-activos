@@ -27,6 +27,7 @@ def home(request):
     contexto = {
         "ordenes": ordenes_pendientes,
         "alertas_nuevas": alertas_nuevas,   # <-- coincide con el template
+        "section": "home",
     }
     return render(request, "core/home.html", contexto)
 

@@ -10,7 +10,7 @@ urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
     # Autenticación (tu app 'accounts')
-    path("accounts/", include("accounts.urls")),
+    path("accounts/", include(("accounts.urls", "accounts"), namespace="accounts")),
     # Otras apps
     path("escaner/", include("lector_qr.urls")),
     #path("activos/", include("activos.urls")),

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h1 class="h5 mb-3">Usuarios</h1>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead class="table-light">
+        <tr>
+          <th>Usuario</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td>{{ user.username }}</td>
+          <td>{{ user.email }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="2" class="text-center text-muted py-4">No hay usuarios.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

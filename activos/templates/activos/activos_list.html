@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h1 class="h5 mb-3">Activos</h1>
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead class="table-light">
+        <tr>
+          <th>Código</th>
+          <th>Nombre</th>
+          <th>Número</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for activo in activos %}
+        <tr>
+          <td>{{ activo.codigo }}</td>
+          <td>{{ activo.nombre }}</td>
+          <td>{{ activo.numero_activo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center text-muted py-4">No hay activos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

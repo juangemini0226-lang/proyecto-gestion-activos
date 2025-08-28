@@ -41,14 +41,30 @@
     <ul class="nav nav-pills flex-column mb-auto">
       <li class="nav-item">
        
-        <a href="{% url 'home' %}" class="nav-link active">
+        <a href="{% url 'home' %}" class="nav-link {% if section == 'home' %}active{% endif %}">
           <i class="bi bi-speedometer2"></i> Inicio
         </a>
       </li>
-      <li><a href="#" class="nav-link"><i class="bi bi-list-task"></i> Tareas</a></li>
-      <li><a href="#" class="nav-link"><i class="bi bi-gear"></i> Mantenimiento</a></li>
-      <li><a href="#" class="nav-link"><i class="bi bi-box"></i> Activos</a></li>
-      <li><a href="#" class="nav-link"><i class="bi bi-people"></i> Usuarios</a></li>
+      <li>
+        <a href="{% url 'activos:mis_tareas' %}" class="nav-link {% if section == 'tareas' %}active{% endif %}">
+          <i class="bi bi-list-task"></i> Tareas
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'activos:ordenes_list' %}" class="nav-link {% if section == 'mantenimiento' %}active{% endif %}">
+          <i class="bi bi-gear"></i> Mantenimiento
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'activos:activos_list' %}" class="nav-link {% if section == 'activos' %}active{% endif %}">
+          <i class="bi bi-box"></i> Activos
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'accounts:users_list' %}" class="nav-link {% if section == 'usuarios' %}active{% endif %}">
+          <i class="bi bi-people"></i> Usuarios
+        </a>
+      </li>
       <!-- Agrega más entradas conforme avances -->
     </ul>
 
