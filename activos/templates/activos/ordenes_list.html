@@ -44,6 +44,37 @@
         <i class="bi bi-funnel me-1"></i> Filtrar
       </button>
     </div>
+    <div class="w-100"></div>
+    <div class="col-md-3">
+      <label class="form-label">Asignada</label>
+      <select name="asignado" class="form-select">
+        <option value="" {% if not filtros.asignado %}selected{% endif %}>Todas</option>
+        <option value="SI" {% if filtros.asignado == 'SI' %}selected{% endif %}>Asignadas</option>
+        <option value="NO" {% if filtros.asignado == 'NO' %}selected{% endif %}>Sin asignar</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Fecha de vencimiento</label>
+      <input type="date" name="vencimiento" class="form-control" value="{{ filtros.vencimiento }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Ubicación</label>
+      <select name="ubicacion" class="form-select">
+        <option value="" {% if not filtros.ubicacion %}selected{% endif %}>Todas</option>
+        {% for u in ubicaciones %}
+          <option value="{{ u.id }}" {% if filtros.ubicacion|add:'' == u.id|stringformat:'s' %}selected{% endif %}>{{ u.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Prioridad</label>
+      <select name="prioridad" class="form-select">
+        <option value="" {% if not filtros.prioridad %}selected{% endif %}>Todas</option>
+        {% for val,label in PRIORIDADES %}
+          <option value="{{ val }}" {% if filtros.prioridad == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
   </form>
 
   <!-- Tabla -->
@@ -56,6 +87,9 @@
           <th>Tipo</th>
           <th>Estado</th>
           <th>Asignado a</th>
+          <th>Vencimiento</th>
+          <th>Ubicación</th>
+          <th>Prioridad</th>
           <th>Creado por</th>
           <th>Creación</th>
           <th class="text-end">Acciones</th>
@@ -88,6 +122,9 @@
             {% endif %}
           </td>
           <td>{{ ot.asignado_a.username|default:"—" }}</td>
+          <td class="text-nowrap">{{ ot.vencimiento|date:"Y-m-d"|default:"—" }}</td>
+          <td>{{ ot.ubicacion.nombre|default:"—" }}</td>
+          <td>{{ ot.get_prioridad_display }}</td>
           <td>{{ ot.creado_por.username|default:"—" }}</td>
           <td class="text-nowrap">{{ ot.fecha_creacion|date:"Y-m-d H:i" }}</td>
           <td class="text-end">
@@ -103,7 +140,7 @@
         </tr>
       {% empty %}
         <tr>
-          <td colspan="8" class="text-center text-muted py-4">
+          <td colspan="11" class="text-center text-muted py-4">
             No hay órdenes con el filtro actual.
           </td>
         </tr>

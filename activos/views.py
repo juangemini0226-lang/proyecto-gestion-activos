@@ -13,6 +13,7 @@ from .models import (
     DetalleMantenimiento,
     EstadoOT,
     TipoOT,
+    PrioridadOT,
     PlantillaChecklist,
     CatalogoFalla,
     Ubicacion,
@@ -38,60 +39,16 @@ def activos_list(request):
     """Listado sencillo de activos."""
     activos = Activo.objects.all()
     context = {"activos": activos, "section": "activos"}
-    return render(request, "activos/activos_list.html", context)
-
-
-@login_required
-def activo_create(request):
-    if request.method == "POST":
-        form = ActivoForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Activo creado correctamente.")
-            return redirect("activos:activos_list")
-    else:
-        form = ActivoForm()
-    return render(request, "activos/activo_form.html", {"form": form})
-
-
-@login_required
-def activo_update(request, pk: int):
-    activo = get_object_or_404(Activo, pk=pk)
-    if request.method == "POST":
-        form = ActivoForm(request.POST, request.FILES, instance=activo)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Activo actualizado correctamente.")
-            return redirect("activos:activos_list")
-    else:
-        form = ActivoForm(instance=activo)
-    return render(request, "activos/activo_form.html", {"form": form, "activo": activo})
-
-
-# ===================== Helpers de permisos =====================
-def es_supervisor(u):
-    return u.is_superuser or u.groups.filter(name__iexact="Supervisor").exists()
-
-
-# ===================== Utilidades de negocio =====================
 def _apply_best_template_or_fallback(ot: RegistroMantenimiento):
-    """
-    Aplica la mejor plantilla usando el manager del modelo.
-    Prioridad: Falla -> Activo -> Familia -> Global.
-    """
-    plantilla = PlantillaChecklist.objects.get_best_template_for(
-        activo=ot.activo, tipo=ot.tipo, falla=ot.falla
-    )
-    if plantilla:
         ot.aplicar_plantilla(plantilla)
         return "plantilla"
     
     # Fallback si no encuentra plantilla
-    if not ot.detalles.exists():
+if not ot.detalles.exists():
         DetalleMantenimiento.objects.bulk_create(
             [DetalleMantenimiento(registro=ot, tarea=t) for t in TareaMantenimiento.objects.all()]
         )
-    return "fallback"
+return "fallback"
 
 
 def _ensure_checklist_exists(ot: RegistroMantenimiento):
@@ -108,7 +65,16 @@ def ordenes_list(request):
     """Listado de órdenes (supervisor) con filtros y paginación."""
 
     # Recuperar filtros desde la sesión o inicializarlos
-    filtros = request.session.get("filtros_ot", {"estado": "", "tipo": "", "q": ""})
+    defaults = {
+        "estado": "",
+        "tipo": "",
+        "q": "",
+        "asignado": "",
+        "vencimiento": "",
+        "ubicacion": "",
+        "prioridad": "",
+    }
+    filtros = {**defaults, **request.session.get("filtros_ot", {})}
 
     # Si vienen datos por POST, actualizamos la sesión y redirigimos (PRG)
     if request.method == "POST":
@@ -116,17 +82,35 @@ def ordenes_list(request):
             "estado": request.POST.get("estado", ""),
             "tipo": request.POST.get("tipo", ""),
             "q": request.POST.get("q", ""),
+            "asignado": request.POST.get("asignado", ""),
+            "vencimiento": request.POST.get("vencimiento", ""),
+            "ubicacion": request.POST.get("ubicacion", ""),
+            "prioridad": request.POST.get("prioridad", ""),
         }
         request.session["filtros_ot"] = filtros
         return redirect("activos:ordenes_list")
 
-    qs = RegistroMantenimiento.objects.select_related("activo", "asignado_a").all()
+    qs = (
+        RegistroMantenimiento.objects.select_related(
+            "activo", "asignado_a", "ubicacion", "creado_por"
+        ).all()
+    )
 
     # Aplicar filtros
     if filtros.get("estado"):
         qs = qs.filter(estado=filtros["estado"])
     if filtros.get("tipo"):
         qs = qs.filter(tipo=filtros["tipo"])
+    if filtros.get("asignado") == "SI":
+        qs = qs.filter(asignado_a__isnull=False)
+    elif filtros.get("asignado") == "NO":
+        qs = qs.filter(asignado_a__isnull=True)
+    if filtros.get("vencimiento"):
+        qs = qs.filter(vencimiento=filtros["vencimiento"])
+    if filtros.get("ubicacion"):
+        qs = qs.filter(ubicacion_id=filtros["ubicacion"])
+    if filtros.get("prioridad"):
+        qs = qs.filter(prioridad=filtros["prioridad"])
     if filtros.get("q"):
         q = filtros["q"]
         qs = qs.filter(
@@ -144,6 +128,8 @@ def ordenes_list(request):
         "ordenes": page_obj.object_list,
         "section": "mantenimiento",
         "ESTADOS": EstadoOT.choices,
+        "PRIORIDADES": PrioridadOT.choices,
+        "ubicaciones": Ubicacion.objects.all(),
         "filtros": filtros,
     }
     return render(request, "activos/ordenes_list.html", context)
@@ -170,9 +156,33 @@ def agendar_mantenimiento(request):
         form = RegistroMantenimientoForm()
 
     return render(request, "activos/agendar_mantenimiento.html", {"form": form})
-    def crear_ot_desde_alerta(request, pk: int):
-        request, f"Orden #{ot.id} creada para {alerta.activo.codigo}. La alerta quedó EN_PROCESO."
-    
+
+
+@login_required
+@user_passes_test(es_supervisor)
+def crear_ot_desde_alerta(request, pk: int):
+    """Genera una OT a partir de una alerta de mantenimiento."""
+    alerta = get_object_or_404(
+        AlertaMantenimiento.objects.select_related("activo"), pk=pk
+    )
+
+    ot = RegistroMantenimiento.objects.create(
+        activo=alerta.activo,
+        creado_por=request.user,
+        estado=EstadoOT.PEN,
+        tipo=TipoOT.PRE,
+        titulo=f"Mantenimiento desde alerta #{alerta.id}",
+    )
+
+    _apply_best_template_or_fallback(ot)
+
+    alerta.estado = "EN_PROCESO"
+    alerta.save(update_fields=["estado"])
+
+    messages.success(
+        request,
+        f"Orden #{ot.id} creada para {alerta.activo.codigo}. La alerta quedó EN_PROCESO.",
+    )
     return redirect("activos:ordenes_list")
 
 
@@ -240,6 +250,28 @@ def checklist_mantenimiento(request, pk: int):
         {"ot": ot, "items_checklist": items},
     )
 
+
+@login_required
+def cambiar_estado_ot(request, pk: int):
+    """Cambia el estado de una OT si la transición es válida."""
+    ot = get_object_or_404(RegistroMantenimiento, pk=pk)
+
+    if not (es_supervisor(request.user) or ot.asignado_a_id == request.user.id):
+        messages.error(request, "No tiene permiso para actualizar esta OT.")
+        return redirect("activos:ordenes_list")
+
+    if request.method == "POST":
+        nuevo = request.POST.get("estado")
+        if nuevo == "COM":
+            nuevo = EstadoOT.CER
+        try:
+            ot.transition_to(nuevo, usuario=request.user)
+            messages.success(request, "Estado actualizado correctamente.")
+        except Exception as e:
+            messages.error(request, str(e))
+
+    return redirect(request.META.get("HTTP_REFERER") or "activos:ordenes_list")
+
 def detalle_activo_por_codigo(request, codigo: str):
     """
     Detalle de Activo buscado por su 'codigo'.
@@ -256,6 +288,7 @@ def detalle_activo_por_codigo(request, codigo: str):
 
     ctx = {"activo": activo, "ots": ots}
     return render(request, "activos/detalle_activo.html", ctx)
+
 @login_required
 def iniciar_mantenimiento(request, activo_id: int):
     """

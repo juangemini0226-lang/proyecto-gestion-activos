@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "core/base.html" %}
 
 {% block content %}
 <div class="container py-4">
@@ -23,7 +23,7 @@
     <div class="ms-3" style="min-width:220px;">
       <div class="small mb-1">Avance: <strong>{{ ot.porcentaje_avance }}%</strong></div>
       <div class="progress" style="height:8px;">
-        <!-- Quitamos {{ }} del style para que no marque error CSS -->
+        
         <div class="progress-bar js-progress" 
              data-progress="{{ ot.porcentaje_avance|default:0 }}"
              role="progressbar"
@@ -141,7 +141,7 @@
   </div>
 </div>
 
-<!-- Pequeño script para aplicar el ancho sin poner {{ }} dentro de style -->
+<!-- Pequeño script para aplicar el ancho sin poner dentro de style -->
 <script>
   document.querySelectorAll('.js-progress').forEach(function (el) {
     var pct = parseFloat(el.dataset.progress || '0');
