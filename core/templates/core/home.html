@@ -2,45 +2,43 @@
 
 {% block title %}Inicio{% endblock %}
 
-{% block header_title %}
-  <h1 class="text-lg font-semibold text-gray-800">Inicio</h1>
-{% endblock %}
-
 {% block content %}
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-    
-    <!-- Tarjeta ejemplo -->
-    <div class="bg-white shadow rounded-xl p-6">
-      <h2 class="text-lg font-semibold mb-2">Activos</h2>
-      <p class="text-gray-600">Gestión de activos registrados en el sistema.</p>
-      <a href="{% url 'activos:ordenes_list' %}" class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-        Ver Activos
-      </a>
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+  <div class="col">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-box"></i> Activos</h5>
+        <p class="card-text">Gestión de activos registrados en el sistema.</p>
+        <a href="{% url 'activos:activos_list' %}" class="btn btn-primary">Ver Activos</a>
+      </div>
     </div>
-
-    <div class="bg-white shadow rounded-xl p-6">
-      <h2 class="text-lg font-semibold mb-2">Órdenes</h2>
-      <p class="text-gray-600">Administrar órdenes de trabajo activas y completadas.</p>
-      <a href="{% url 'activos:ordenes_list' %}" class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-        Ver Órdenes
-      </a>
-    </div>
-
-    <div class="bg-white shadow rounded-xl p-6">
-      <h2 class="text-lg font-semibold mb-2">Horómetro</h2>
-      <p class="text-gray-600">Revisar horas de uso y alertas de mantenimiento.</p>
-      <a href="{% url 'horometro_alertas' %}" class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-        Ver Horómetro
-      </a>
-    </div>
-
-    <div class="bg-white shadow rounded-xl p-6">
-      <h2 class="text-lg font-semibold mb-2">QR</h2>
-      <p class="text-gray-600">Escanear activos con el lector QR.</p>
-      <a href="{% url 'escaner' %}" class="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-        Escanear QR
-      </a>
-    </div>
-
   </div>
-{% endblock %}  
+  <div class="col">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-gear"></i> Órdenes</h5>
+        <p class="card-text">Administrar órdenes de trabajo activas y completadas.</p>
+        <a href="{% url 'activos:ordenes_list' %}" class="btn btn-primary">Ver Órdenes</a>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-speedometer2"></i> Horómetro</h5>
+        <p class="card-text">Revisar horas de uso y alertas de mantenimiento.</p>
+        <a href="{% url 'horometro_alertas' %}" class="btn btn-primary">Ver Horómetro</a>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-qr-code"></i> QR</h5>
+        <p class="card-text">Escanear activos con el lector QR.</p>
+        <a href="{% url 'escaner' %}" class="btn btn-primary">Escanear QR</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
