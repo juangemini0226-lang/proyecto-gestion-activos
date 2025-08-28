@@ -1,6 +1,10 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.urls import reverse
+from django.core.files import File
+from io import BytesIO
+import qrcode
 
 
 # -------- Tarea maestra --------
@@ -16,6 +20,21 @@ class FamiliaActivo(models.Model):
     def __str__(self): return self.nombre
 
 
+# -------- Categorías y Estados --------
+class CategoriaActivo(models.Model):
+    nombre = models.CharField(max_length=120, unique=True)
+
+    def __str__(self):
+        return self.nombre
+
+
+class EstadoActivo(models.Model):
+    nombre = models.CharField(max_length=120, unique=True)
+
+    def __str__(self):
+        return self.nombre
+
+
 # -------- Activo --------
 class Activo(models.Model):
     codigo = models.CharField(max_length=100, unique=True, verbose_name="Código")
@@ -23,7 +42,24 @@ class Activo(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre")
     peso = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso")
     familia = models.ForeignKey("FamiliaActivo", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos")
-    def __str__(self): return f"{self.codigo} - {self.nombre}"
+    categoria = models.ForeignKey("CategoriaActivo", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos")
+    estado = models.ForeignKey("EstadoActivo", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos")
+    ubicacion = models.ForeignKey("Ubicacion", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos")
+    qr_code = models.ImageField(upload_to="qr_codes", blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.qr_code:
+            url = reverse("activos:detalle_activo_por_codigo", args=[self.codigo])
+            img = qrcode.make(url)
+            buffer = BytesIO()
+            img.save(buffer, format="PNG")
+            filename = f"qr_{self.pk}.png"
+            self.qr_code.save(filename, File(buffer), save=False)
+            super().save(update_fields=["qr_code"])
 
 
 # -------- Catálogo de fallas --------

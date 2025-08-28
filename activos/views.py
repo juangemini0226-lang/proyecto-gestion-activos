@@ -23,7 +23,8 @@ from .forms import (
     CargarPlantillaForm,
     GuardarComoPlantillaForm,
     AddTareaRapidaForm,
-    AsignarOTForm, 
+    AsignarOTForm,
+    ActivoForm,
 )
 from horometro.models import AlertaMantenimiento, LecturaHorometro
 
@@ -38,6 +39,33 @@ def activos_list(request):
     activos = Activo.objects.all()
     context = {"activos": activos, "section": "activos"}
     return render(request, "activos/activos_list.html", context)
+
+
+@login_required
+def activo_create(request):
+    if request.method == "POST":
+        form = ActivoForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Activo creado correctamente.")
+            return redirect("activos:activos_list")
+    else:
+        form = ActivoForm()
+    return render(request, "activos/activo_form.html", {"form": form})
+
+
+@login_required
+def activo_update(request, pk: int):
+    activo = get_object_or_404(Activo, pk=pk)
+    if request.method == "POST":
+        form = ActivoForm(request.POST, request.FILES, instance=activo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Activo actualizado correctamente.")
+            return redirect("activos:activos_list")
+    else:
+        form = ActivoForm(instance=activo)
+    return render(request, "activos/activo_form.html", {"form": form, "activo": activo})
 
 
 # ===================== Helpers de permisos =====================

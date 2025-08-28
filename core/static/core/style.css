@@ -1,0 +1,11 @@
+/* Custom styles for better readability */
+.list-group-item {
+    background-color: #ffffff;
+    color: #212529;
+}
+.list-group-item:nth-child(even) {
+    background-color: #f8f9fa;
+}
+.table td, .table th {
+    vertical-align: middle;
+}

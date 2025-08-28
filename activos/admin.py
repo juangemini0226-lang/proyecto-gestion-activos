@@ -19,6 +19,9 @@ from .models import (
     EstadoOT,
     TipoOT,
     FamiliaActivo,
+    CategoriaActivo,
+    EstadoActivo,
+    Ubicacion,
     CatalogoFalla,
     PlantillaChecklist,
     PlantillaItem,
@@ -38,9 +41,19 @@ class ActivoResource(resources.ModelResource):
 @admin.register(Activo)
 class ActivoAdmin(ImportExportModelAdmin):
     resource_class = ActivoResource
-    list_display = ("codigo", "numero_activo", "nombre", "familia", "peso")
+    list_display = (
+        "codigo",
+        "numero_activo",
+        "nombre",
+        "familia",
+        "categoria",
+        "estado",
+        "ubicacion",
+        "peso",
+    )
     search_fields = ("codigo", "numero_activo", "nombre")
-    list_filter = ("familia",)
+    list_filter = ("familia", "categoria", "estado")
+    autocomplete_fields = ("familia", "categoria", "estado", "ubicacion")
     ordering = ("codigo",)
     list_per_page = 25
 
@@ -51,6 +64,33 @@ class ActivoAdmin(ImportExportModelAdmin):
 @admin.register(FamiliaActivo)
 class FamiliaActivoAdmin(admin.ModelAdmin):
     list_display = ("nombre",)
+    search_fields = ("nombre",)
+
+
+# ==========================
+#  Categorías de activos
+# ==========================
+@admin.register(CategoriaActivo)
+class CategoriaActivoAdmin(admin.ModelAdmin):
+    list_display = ("nombre",)
+    search_fields = ("nombre",)
+
+
+# ==========================
+#  Estados de activos
+# ==========================
+@admin.register(EstadoActivo)
+class EstadoActivoAdmin(admin.ModelAdmin):
+    list_display = ("nombre",)
+    search_fields = ("nombre",)
+
+
+# ==========================
+#  Ubicaciones
+# ==========================
+@admin.register(Ubicacion)
+class UbicacionAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "padre")
     search_fields = ("nombre",)
 
 

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "core/base.html" %}
 {% block content %}
 <div class="container py-4">
 
@@ -6,6 +6,9 @@
   <div class="card shadow-sm mb-3">
     <div class="card-body">
       <h1 class="h5 mb-3">Activo <strong>{{ activo.codigo }}</strong> — {{ activo.nombre }}</h1>
+      {% if activo.qr_code %}
+        <img src="{{ activo.qr_code.url }}" alt="QR {{ activo.codigo }}" class="float-end" width="120" />
+      {% endif %}
       <dl class="row mb-0">
         {% if activo.descripcion %}
           <dt class="col-sm-3">Descripción</dt><dd class="col-sm-9">{{ activo.descripcion }}</dd>
@@ -46,36 +49,45 @@
     <div class="card-body">
       <h2 class="h6 mb-3">Órdenes recientes</h2>
       {% if ots %}
-        <ul class="list-group list-group-flush">
-          {% for ot in ots %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <div>
-                <div class="fw-semibold">
-                  OT #{{ ot.id }}
-                  <span class="text-muted small ms-2">{{ ot.created_at|date:"Y-m-d H:i" }}</span>
-                </div>
-                <div class="small text-muted">
-                  Estado:
-                  {% if ot.estado == 'PEN' %}
-                    <span class="badge text-bg-secondary">Pendiente</span>
-                  {% elif ot.estado == 'PRO' %}
-                    <span class="badge text-bg-info">En Progreso</span>
-                  {% elif ot.estado == 'REV' %}
-                    <span class="badge text-bg-warning">Pend. Revisión</span>
-                  {% elif ot.estado == 'COM' %}
-                    <span class="badge text-bg-success">Completada</span>
-                  {% else %}
-                    {{ ot.get_estado_display|default:ot.estado }}
-                  {% endif %}
-                </div>
-              </div>
-              <!-- Tu URL estandarizada: mantenimiento/<int:pk>/checklist/ -->
-              <a href="{% url 'activos:checklist_mantenimiento' ot.id %}" class="btn btn-sm btn-primary">
-                Abrir checklist
-              </a>
-            </li>
-          {% endfor %}
-        </ul>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ot in ots %}
+                <tr>
+                  <td>OT #{{ ot.id }}</td>
+                  <td>{{ ot.created_at|date:"Y-m-d H:i" }}</td>
+                  <td>
+                    {% if ot.estado == 'PEN' %}
+                      <span class="badge text-bg-secondary">Pendiente</span>
+                    {% elif ot.estado == 'PRO' %}
+                      <span class="badge text-bg-info">En Progreso</span>
+                    {% elif ot.estado == 'REV' %}
+                      <span class="badge text-bg-warning">Pend. Revisión</span>
+                    {% elif ot.estado == 'COM' %}
+                      <span class="badge text-bg-success">Completada</span>
+                    {% else %}
+                      {{ ot.get_estado_display|default:ot.estado }}
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <!-- Tu URL estandarizada: mantenimiento/<int:pk>/checklist/ -->
+                    <a href="{% url 'activos:checklist_mantenimiento' ot.id %}" class="btn btn-sm btn-primary">
+                      Abrir checklist
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       {% else %}
         <p class="text-muted mb-0">Sin órdenes recientes para este activo.</p>
       {% endif %}

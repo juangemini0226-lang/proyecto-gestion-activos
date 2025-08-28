@@ -1,0 +1,14 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h1 class="h5 mb-3">{% if activo %}Editar Activo{% else %}Nuevo Activo{% endif %}</h1>
+  <form method="post" enctype="multipart/form-data" class="card p-3 shadow-sm">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="mt-3">
+      <button type="submit" class="btn btn-primary">Guardar</button>
+      <a href="{% url 'activos:activos_list' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

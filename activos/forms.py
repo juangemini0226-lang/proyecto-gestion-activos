@@ -15,6 +15,25 @@ from .models import (
 User = get_user_model()
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Formularios de Activos
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class ActivoForm(forms.ModelForm):
+    class Meta:
+        model = Activo
+        fields = [
+            "codigo",
+            "numero_activo",
+            "nombre",
+            "peso",
+            "familia",
+            "categoria",
+            "estado",
+            "ubicacion",
+        ]
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Utilidades
 # ──────────────────────────────────────────────────────────────────────────────
 def _operarios_queryset():
