@@ -46,7 +46,7 @@
         </a>
       </li>
       <li>
-        <a href="{% url 'activos:mis_tareas' %}" class="nav-link {% if section == 'tareas' %}active{% endif %}">
+                <a href="{% url 'activos:mis_tareas' %}" class="nav-link {% if section == 'tareas' %}active{% endif %}">
           <i class="bi bi-list-task"></i> Tareas
         </a>
       </li>
@@ -71,7 +71,7 @@
     {% if user.is_authenticated %}
     <div class="mt-auto">
       <span class="text-muted">Hola, <strong>{{ user.username }}</strong></span>
-      <form action="{% url 'logout' %}" method="post" class="mt-2">
+      <form action="{% url 'accounts:logout' %}" method="post" class="mt-2">
         {% csrf_token %}
         <button class="btn btn-outline-light w-100">Cerrar sesión</button>
       </form>
