@@ -106,14 +106,45 @@ def _ensure_checklist_exists(ot: RegistroMantenimiento):
 @user_passes_test(es_supervisor)
 def ordenes_list(request):
     """Listado de órdenes (supervisor) con filtros y paginación."""
+
+    # Recuperar filtros desde la sesión o inicializarlos
+    filtros = request.session.get("filtros_ot", {"estado": "", "tipo": "", "q": ""})
+
+    # Si vienen datos por POST, actualizamos la sesión y redirigimos (PRG)
+    if request.method == "POST":
+        filtros = {
+            "estado": request.POST.get("estado", ""),
+            "tipo": request.POST.get("tipo", ""),
+            "q": request.POST.get("q", ""),
+        }
+        request.session["filtros_ot"] = filtros
+        return redirect("activos:ordenes_list")
+
     qs = RegistroMantenimiento.objects.select_related("activo", "asignado_a").all()
-    paginator = Paginator(qs, 25)
+
+    # Aplicar filtros
+    if filtros.get("estado"):
+        qs = qs.filter(estado=filtros["estado"])
+    if filtros.get("tipo"):
+        qs = qs.filter(tipo=filtros["tipo"])
+    if filtros.get("q"):
+        q = filtros["q"]
+        qs = qs.filter(
+            Q(id__icontains=q)
+            | Q(activo__codigo__icontains=q)
+            | Q(activo__nombre__icontains=q)
+            | Q(asignado_a__username__icontains=q)
+        )
+
+    paginator = Paginator(qs.order_by("-fecha_creacion"), 25)
     page_obj = paginator.get_page(request.GET.get("page"))
-    
+
     context = {
         "page_obj": page_obj,
         "ordenes": page_obj.object_list,
         "section": "mantenimiento",
+        "ESTADOS": EstadoOT.choices,
+        "filtros": filtros,
     }
     return render(request, "activos/ordenes_list.html", context)
 
@@ -139,69 +170,9 @@ def agendar_mantenimiento(request):
         form = RegistroMantenimientoForm()
 
     return render(request, "activos/agendar_mantenimiento.html", {"form": form})
-
-def cambiar_estado_ot(request, pk: int):
-    """Cambia el estado de una OT de forma segura."""
-    ot = get_object_or_404(RegistroMantenimiento, pk=pk)
-    if request.method == "POST":
-        nuevo_estado = request.POST.get("estado")
-        try:
-            ot.estado = nuevo_estado
-            ot.save()
-            messages.success(request, f"OT #{ot.id} actualizada al estado '{ot.get_estado_display()}'.")
-        except Exception as e:
-            messages.error(request, f"No se pudo cambiar el estado: {e}")
-    
-    return redirect("activos:ordenes_list")
-
-
-@login_required
-def mis_tareas(request):
-    """Vista para operarios: muestra tareas asignadas en PENDIENTE / PRO."""
-    qs = (
-        RegistroMantenimiento.objects.filter(
-            asignado_a=request.user, estado__in=[EstadoOT.PEN, EstadoOT.PRO]
-        )
-        .select_related("activo")
-        .order_by("fecha_creacion")
-    )
-    return render(
-        request,
-        "activos/mis_tareas.html",
-        {"ordenes": qs, "section": "tareas"},
-    )
-
-
-@login_required
-@user_passes_test(es_supervisor)
-def crear_ot_desde_alerta(request, pk: int):
-    """
-    Crea una OT preventiva a partir de una alerta.
-    No se cierra la alerta automáticamente; se marca EN_PROCESO.
-    Aplica mejor plantilla (o fallback).
-    """
-    alerta = get_object_or_404(AlertaMantenimiento, pk=pk)
-
-    ot = RegistroMantenimiento.objects.create(
-        activo=alerta.activo,
-        tipo=TipoOT.PRE,
-        estado=EstadoOT.PEN,
-        creado_por=request.user,
-    )
-
-    _apply_best_template_or_fallback(ot)
-
-    if getattr(alerta, "estado", "") != "CERRADA":
-        alerta.estado = "EN_PROCESO"
-        if hasattr(alerta, "actualizado_en"):
-            alerta.actualizado_en = timezone.now()
-            alerta.save(update_fields=["estado", "actualizado_en"])
-        else:
-            alerta.save(update_fields=["estado"])
-
-    messages.success(
+    def crear_ot_desde_alerta(request, pk: int):
         request, f"Orden #{ot.id} creada para {alerta.activo.codigo}. La alerta quedó EN_PROCESO."
-    )
+    
     return redirect("activos:ordenes_list")
 
 
@@ -224,6 +195,50 @@ def asignar_ot(request, pk: int):
         form = AsignarOTForm(initial={"operario": ot.asignado_a_id})
 
     return render(request, "activos/ot_asignar.html", {"ot": ot, "form": form})
+
+
+@login_required
+def checklist_mantenimiento(request, pk: int):
+    """Muestra y gestiona el checklist de una OT."""
+    ot = get_object_or_404(
+        RegistroMantenimiento.objects.select_related("activo"), pk=pk
+    )
+    _ensure_checklist_exists(ot)
+
+    items = ot.detalles.select_related("tarea").prefetch_related("evidencias")
+
+    if request.method == "POST":
+        # Subida de evidencias
+        if request.POST.get("upload_evidencia"):
+            det_id = request.POST.get("upload_evidencia")
+            det = get_object_or_404(items, pk=det_id)
+            form = EvidenciaDetalleForm(request.POST, request.FILES)
+            if form.is_valid():
+                evidencia = form.save(commit=False)
+                evidencia.detalle_mantenimiento = det
+                evidencia.subido_por = request.user
+                evidencia.save()
+                messages.success(request, "Evidencia subida correctamente.")
+            else:
+                messages.error(request, "No se pudo subir la evidencia.")
+            return redirect("activos:checklist_mantenimiento", pk=pk)
+
+        # Guardar checklist
+        if request.POST.get("guardar_checklist"):
+            updated = []
+            for det in items:
+                det.completado = request.POST.get(f"tarea_{det.id}") == "on"
+                det.observaciones = request.POST.get(f"obs_{det.id}", "").strip() or None
+                updated.append(det)
+            DetalleMantenimiento.objects.bulk_update(updated, ["completado", "observaciones"])
+            messages.success(request, "Checklist actualizado.")
+            return redirect("activos:checklist_mantenimiento", pk=pk)
+
+    return render(
+        request,
+        "activos/checklist_mantenimiento.html",
+        {"ot": ot, "items_checklist": items},
+    )
 
 def detalle_activo_por_codigo(request, codigo: str):
     """
@@ -250,4 +265,5 @@ def iniciar_mantenimiento(request, activo_id: int):
     """
     get_object_or_404(Activo, pk=activo_id)
     url = f"{reverse('activos:agendar_mantenimiento')}?activo={activo_id}"
+
     return redirect(url)
