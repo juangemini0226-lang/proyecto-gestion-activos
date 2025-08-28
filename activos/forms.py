@@ -165,13 +165,34 @@ class AsignarOTForm(forms.Form):
 class RegistroMantenimientoForm(forms.ModelForm):
     class Meta:
         model = RegistroMantenimiento
-        fields = ['activo', 'tipo', 'falla']
+        fields = [
+            "titulo",
+            "descripcion",
+            "activo",
+            "tipo",
+            "asignado_a",
+            "falla",
+        ]
+        labels = {
+            "titulo": "Descripción",
+            "descripcion": "Notas",
+            "asignado_a": "Asignado a",
+        }
+        widgets = {
+            "titulo": forms.Textarea(
+                attrs={"rows": 3, "placeholder": "Ingrese una descripción"}
+            ),
+            "descripcion": forms.Textarea(attrs={"rows": 3}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'falla' in self.fields:
-            self.fields['falla'].required = False
-            self.fields['falla'].queryset = CatalogoFalla.objects.all().order_by('nombre')
+        if "falla" in self.fields:
+            self.fields["falla"].required = False
+            self.fields["falla"].queryset = CatalogoFalla.objects.all().order_by("nombre")
+        if "asignado_a" in self.fields:
+            self.fields["asignado_a"].required = False
+            self.fields["asignado_a"].queryset = _operarios_queryset()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Formulario para evidencia detallada
