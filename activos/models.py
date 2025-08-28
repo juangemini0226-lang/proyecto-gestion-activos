@@ -187,6 +187,17 @@ class RegistroMantenimiento(models.Model):
         hechos = self.detalles.filter(completado=True).count()
         return round(100 * hechos / total)
 
+    # Compatibilidad con nombres antiguos usados en tests
+    @property
+    def fecha_fin(self):
+        """Alias de ``fecha_fin_ejecucion`` mantenido para compatibilidad."""
+        return self.fecha_fin_ejecucion
+
+    @property
+    def cerrado_por(self):
+        """Alias de ``completado_por`` mantenido para compatibilidad."""
+        return self.completado_por
+
     def __str__(self):
         base = f"{self.get_tipo_display()} de {self.activo.nombre} - {self.get_estado_display()}"
         return f"[{self.titulo}] {base}" if self.titulo else base
