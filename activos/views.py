@@ -37,7 +37,7 @@ def activos_list(request):
     """Listado sencillo de activos."""
     activos = Activo.objects.all()
     context = {"activos": activos, "section": "activos"}
-    return render(request, "activos/listado_activos.html", context)
+    return render(request, "activos/activos_list.html", context)
 
 
 def _apply_best_template_or_fallback(ot: RegistroMantenimiento):
