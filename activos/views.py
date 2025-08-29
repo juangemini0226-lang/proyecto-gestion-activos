@@ -4,8 +4,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Q
 from django.core.paginator import Paginator
-from django.utils import timezone
 from django.urls import reverse
+
+from core.views import es_supervisor
+
 from .models import (
     Activo,
     RegistroMantenimiento,
@@ -15,19 +17,15 @@ from .models import (
     TipoOT,
     PrioridadOT,
     PlantillaChecklist,
-    CatalogoFalla,
     Ubicacion,
 )
 from .forms import (
     RegistroMantenimientoForm,
-    EvidenciaDetalleForm,
-    CargarPlantillaForm,
-    GuardarComoPlantillaForm,
-    AddTareaRapidaForm,
+    EvidenciaDetalleForm,  # si no se usa aún, no afecta
     AsignarOTForm,
     ActivoForm,
 )
-from horometro.models import AlertaMantenimiento, LecturaHorometro
+from horometro.models import AlertaMantenimiento
 
 
 def redirect_buscar_a_detalle(request, codigo: str):
@@ -39,16 +37,30 @@ def activos_list(request):
     """Listado sencillo de activos."""
     activos = Activo.objects.all()
     context = {"activos": activos, "section": "activos"}
+    return render(request, "activos/listado_activos.html", context)
+
+
 def _apply_best_template_or_fallback(ot: RegistroMantenimiento):
+    """Aplica la mejor plantilla disponible o genera un checklist base."""
+    plantilla = (
+        PlantillaChecklist.objects.filter(activo=ot.activo, vigente=True).first()
+        or PlantillaChecklist.objects.filter(familia=ot.activo.familia, vigente=True).first()
+        or PlantillaChecklist.objects.filter(falla=ot.falla, vigente=True).first()
+    )
+
+    if plantilla:
         ot.aplicar_plantilla(plantilla)
         return "plantilla"
-    
-    # Fallback si no encuentra plantilla
-if not ot.detalles.exists():
+
+    # Fallback: generar checklist base con todas las tareas si no hay detalles
+    if not ot.detalles.exists():
         DetalleMantenimiento.objects.bulk_create(
-            [DetalleMantenimiento(registro=ot, tarea=t) for t in TareaMantenimiento.objects.all()]
+            [
+                DetalleMantenimiento(registro=ot, tarea=t)
+                for t in TareaMantenimiento.objects.all()
+            ]
         )
-return "fallback"
+    return "fallback"
 
 
 def _ensure_checklist_exists(ot: RegistroMantenimiento):
@@ -64,7 +76,7 @@ def _ensure_checklist_exists(ot: RegistroMantenimiento):
 def ordenes_list(request):
     """Listado de órdenes (supervisor) con filtros y paginación."""
 
-    # Recuperar filtros desde la sesión o inicializarlos
+    # 1) Filtros por defecto + los guardados en sesión
     defaults = {
         "estado": "",
         "tipo": "",
@@ -76,7 +88,7 @@ def ordenes_list(request):
     }
     filtros = {**defaults, **request.session.get("filtros_ot", {})}
 
-    # Si vienen datos por POST, actualizamos la sesión y redirigimos (PRG)
+    # 2) Si es POST, actualizar filtros en sesión (PRG) y redirigir
     if request.method == "POST":
         filtros = {
             "estado": request.POST.get("estado", ""),
@@ -90,27 +102,30 @@ def ordenes_list(request):
         request.session["filtros_ot"] = filtros
         return redirect("activos:ordenes_list")
 
-    qs = (
-        RegistroMantenimiento.objects.select_related(
-            "activo", "asignado_a", "ubicacion", "creado_por"
-        ).all()
-    )
+    # 3) Construcción del queryset base
+    qs = RegistroMantenimiento.objects.select_related("activo").all()
 
-    # Aplicar filtros
+    # 4) Aplicación de filtros
     if filtros.get("estado"):
         qs = qs.filter(estado=filtros["estado"])
+
     if filtros.get("tipo"):
         qs = qs.filter(tipo=filtros["tipo"])
-    if filtros.get("asignado") == "SI":
-        qs = qs.filter(asignado_a__isnull=False)
-    elif filtros.get("asignado") == "NO":
-        qs = qs.filter(asignado_a__isnull=True)
-    if filtros.get("vencimiento"):
-        qs = qs.filter(vencimiento=filtros["vencimiento"])
+
+    if filtros.get("asignado"):
+        # Se asume que llega un ID de usuario; si llega username, ajustar el filtro
+        qs = qs.filter(asignado_a_id=filtros["asignado"])
+
     if filtros.get("ubicacion"):
-        qs = qs.filter(ubicacion_id=filtros["ubicacion"])
+        qs = qs.filter(activo__ubicacion_id=filtros["ubicacion"])
+
     if filtros.get("prioridad"):
         qs = qs.filter(prioridad=filtros["prioridad"])
+
+    if filtros.get("vencimiento"):
+        # Ejemplo: fecha límite <= vencimiento (YYYY-MM-DD)
+        qs = qs.filter(vencimiento__date__lte=filtros["vencimiento"])
+
     if filtros.get("q"):
         q = filtros["q"]
         qs = qs.filter(
@@ -120,6 +135,7 @@ def ordenes_list(request):
             | Q(asignado_a__username__icontains=q)
         )
 
+    # 5) Paginación y render
     paginator = Paginator(qs.order_by("-fecha_creacion"), 25)
     page_obj = paginator.get_page(request.GET.get("page"))
 
@@ -137,8 +153,52 @@ def ordenes_list(request):
 
 @login_required
 @user_passes_test(es_supervisor)
+def activo_create(request):
+    """Crea un nuevo activo."""
+    form = ActivoForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Activo creado correctamente.")
+        return redirect("activos:activos_list")
+    return render(request, "activos/activo_form.html", {"form": form, "section": "activos"})
+
+
+@login_required
+@user_passes_test(es_supervisor)
+def activo_update(request, pk: int):
+    """Actualiza un activo existente."""
+    activo = get_object_or_404(Activo, pk=pk)
+    form = ActivoForm(request.POST or None, instance=activo)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Activo actualizado correctamente.")
+        return redirect("activos:activos_list")
+    return render(
+        request,
+        "activos/activo_form.html",
+        {"form": form, "activo": activo, "section": "activos"},
+    )
+
+
+@login_required
+def mis_tareas(request):
+    """Lista de órdenes asignadas al usuario actual."""
+    ordenes = (
+        RegistroMantenimiento.objects.select_related("activo")
+        .filter(asignado_a=request.user)
+        .order_by("-fecha_creacion")
+    )
+    return render(
+        request,
+        "activos/mis_tareas.html",
+        {"ordenes": ordenes, "section": "mantenimiento"},
+    )
+
+
+@login_required
+@user_passes_test(es_supervisor)
 def agendar_mantenimiento(request):
-    """Crea una OT en estado PEN usando el nuevo RegistroMantenimientoForm."""
+    """Crea una OT en estado PEN usando el RegistroMantenimientoForm."""
     if request.method == "POST":
         form = RegistroMantenimientoForm(request.POST)
         if form.is_valid():
@@ -161,7 +221,6 @@ def agendar_mantenimiento(request):
 @login_required
 @user_passes_test(es_supervisor)
 def crear_ot_desde_alerta(request, pk: int):
-    """Genera una OT a partir de una alerta de mantenimiento."""
     alerta = get_object_or_404(
         AlertaMantenimiento.objects.select_related("activo"), pk=pk
     )
@@ -190,7 +249,9 @@ def crear_ot_desde_alerta(request, pk: int):
 @user_passes_test(es_supervisor)
 def asignar_ot(request, pk: int):
     """Asigna o reasigna una OT a un operario."""
-    ot = get_object_or_404(RegistroMantenimiento.objects.select_related("activo"), pk=pk)
+    ot = get_object_or_404(
+        RegistroMantenimiento.objects.select_related("activo"), pk=pk
+    )
 
     if request.method == "POST":
         form = AsignarOTForm(request.POST)
@@ -217,32 +278,12 @@ def checklist_mantenimiento(request, pk: int):
 
     items = ot.detalles.select_related("tarea").prefetch_related("evidencias")
 
-    if request.method == "POST":
-        # Subida de evidencias
-        if request.POST.get("upload_evidencia"):
-            det_id = request.POST.get("upload_evidencia")
-            det = get_object_or_404(items, pk=det_id)
-            form = EvidenciaDetalleForm(request.POST, request.FILES)
-            if form.is_valid():
-                evidencia = form.save(commit=False)
-                evidencia.detalle_mantenimiento = det
-                evidencia.subido_por = request.user
-                evidencia.save()
-                messages.success(request, "Evidencia subida correctamente.")
-            else:
-                messages.error(request, "No se pudo subir la evidencia.")
-            return redirect("activos:checklist_mantenimiento", pk=pk)
-
-        # Guardar checklist
-        if request.POST.get("guardar_checklist"):
-            updated = []
-            for det in items:
-                det.completado = request.POST.get(f"tarea_{det.id}") == "on"
-                det.observaciones = request.POST.get(f"obs_{det.id}", "").strip() or None
-                updated.append(det)
-            DetalleMantenimiento.objects.bulk_update(updated, ["completado", "observaciones"])
-            messages.success(request, "Checklist actualizado.")
-            return redirect("activos:checklist_mantenimiento", pk=pk)
+    # Si más adelante se procesan formularios de evidencias, hacerlo aquí.
+    # if request.method == "POST":
+    #     form = EvidenciaDetalleForm(request.POST, request.FILES)
+    #     if form.is_valid():
+    #         ...
+    #         return redirect("activos:checklist_mantenimiento", pk=pk)
 
     return render(
         request,
@@ -267,21 +308,18 @@ def cambiar_estado_ot(request, pk: int):
         try:
             ot.transition_to(nuevo, usuario=request.user)
             messages.success(request, "Estado actualizado correctamente.")
-        except Exception as e:
-            messages.error(request, str(e))
+        except Exception as exc:  # defensa
+            messages.error(request, str(exc))
 
     return redirect(request.META.get("HTTP_REFERER") or "activos:ordenes_list")
 
+
 def detalle_activo_por_codigo(request, codigo: str):
-    """
-    Detalle de Activo buscado por su 'codigo'.
-    Muestra además las OTs recientes vinculadas al activo.
-    """
+    """Detalle de un activo buscado por su código."""
     activo = get_object_or_404(Activo, codigo=codigo)
 
     ots = (
-        RegistroMantenimiento.objects
-        .filter(activo=activo)
+        RegistroMantenimiento.objects.filter(activo=activo)
         .select_related("activo")
         .order_by("-id")[:20]
     )
@@ -289,14 +327,10 @@ def detalle_activo_por_codigo(request, codigo: str):
     ctx = {"activo": activo, "ots": ots}
     return render(request, "activos/detalle_activo.html", ctx)
 
+
 @login_required
 def iniciar_mantenimiento(request, activo_id: int):
-    """
-    Wrapper liviano: valida que el activo exista y redirige a la vista de agendar
-    con el activo preseleccionado por querystring (?activo=<id>).
-    Evita acoplarse a campos específicos de RegistroMantenimiento.
-    """
+    """Redirige a la vista de agendar con el activo preseleccionado."""
     get_object_or_404(Activo, pk=activo_id)
     url = f"{reverse('activos:agendar_mantenimiento')}?activo={activo_id}"
-
     return redirect(url)
