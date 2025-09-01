@@ -8,50 +8,50 @@
       {{ form.titulo }}
     </div>
     <div class="mb-3">
-      {{ form.descripcion.label_tag }}
+      <label for="{{ form.descripcion.id_for_label }}" class="form-label">{{ form.descripcion.label }}</label>
       {{ form.descripcion }}
     </div>
     <div class="row g-3 mb-3">
       <div class="col-md-6">
-        {{ form.ubicacion.label_tag }}
+        <label for="{{ form.ubicacion.id_for_label }}" class="form-label">{{ form.ubicacion.label }}</label>
         {{ form.ubicacion }}
       </div>
       <div class="col-md-6">
-        {{ form.activo.label_tag }}
+        <label for="{{ form.activo.id_for_label }}" class="form-label">{{ form.activo.label }}</label>
         {{ form.activo }}
       </div>
     </div>
     <div class="row g-3 mb-3">
       <div class="col-md-4">
-        {{ form.tipo.label_tag }}
+        <label for="{{ form.tipo.id_for_label }}" class="form-label">{{ form.tipo.label }}</label>
         {{ form.tipo }}
       </div>
       <div class="col-md-4">
-        {{ form.asignado_a.label_tag }}
+        <label for="{{ form.asignado_a.id_for_label }}" class="form-label">{{ form.asignado_a.label }}</label>
         {{ form.asignado_a }}
       </div>
       <div class="col-md-4">
-        {{ form.tiempo_estimado_minutos.label_tag }}
+        <label for="{{ form.tiempo_estimado_minutos.id_for_label }}" class="form-label">{{ form.tiempo_estimado_minutos.label }}</label>
         {{ form.tiempo_estimado_minutos }}
       </div>
     </div>
     <div class="row g-3 mb-3">
       <div class="col-md-4">
-        {{ form.vencimiento.label_tag }}
+        <label for="{{ form.vencimiento.id_for_label }}" class="form-label">{{ form.vencimiento.label }}</label>
         {{ form.vencimiento }}
       </div>
       <div class="col-md-4">
-        {{ form.fecha_inicio.label_tag }}
+        <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">{{ form.fecha_inicio.label }}</label>
         {{ form.fecha_inicio }}
       </div>
       <div class="col-md-4">
-        {{ form.recurrencia.label_tag }}
+        <label for="{{ form.recurrencia.id_for_label }}" class="form-label">{{ form.recurrencia.label }}</label>
         {{ form.recurrencia }}
       </div>
     </div>
     <div class="row g-3 mb-3">
       <div class="col-md-4">
-        {{ form.prioridad.label_tag }}
+        <label for="{{ form.prioridad.id_for_label }}" class="form-label">{{ form.prioridad.label }}</label>
         {{ form.prioridad }}
       </div>
     </div>

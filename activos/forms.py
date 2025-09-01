@@ -203,6 +203,13 @@ class RegistroMantenimientoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Añadir clases de Bootstrap a los widgets
+        for field in self.fields.values():
+            widget = field.widget
+            base_class = "form-select" if isinstance(widget, forms.Select) else "form-control"
+            widget.attrs["class"] = f"{widget.attrs.get('class', '')} {base_class}".strip()
+
         if "falla" in self.fields:
             self.fields["falla"].required = False
             self.fields["falla"].queryset = CatalogoFalla.objects.all().order_by("nombre")
@@ -228,4 +235,7 @@ class RegistroMantenimientoForm(forms.ModelForm):
 class EvidenciaDetalleForm(forms.ModelForm):
     class Meta:
         model = EvidenciaDetalle
-        fields = ['archivo']
+        fields = ["archivo"]
+        widgets = {
+            "archivo": forms.ClearableFileInput(attrs={"class": "form-control"})
+        }
