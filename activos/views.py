@@ -113,8 +113,13 @@ def ordenes_list(request):
         qs = qs.filter(tipo=filtros["tipo"])
 
     if filtros.get("asignado"):
-        # Se asume que llega un ID de usuario; si llega username, ajustar el filtro
-        qs = qs.filter(asignado_a_id=filtros["asignado"])
+        # Permite filtrar por asignadas, sin asignar o por ID específico
+        if filtros["asignado"] == "SI":
+            qs = qs.filter(asignado_a__isnull=False)
+        elif filtros["asignado"] == "NO":
+            qs = qs.filter(asignado_a__isnull=True)
+        else:
+            qs = qs.filter(asignado_a_id=filtros["asignado"])
 
     if filtros.get("ubicacion"):
         qs = qs.filter(activo__ubicacion_id=filtros["ubicacion"])

@@ -168,21 +168,37 @@ class RegistroMantenimientoForm(forms.ModelForm):
         fields = [
             "titulo",
             "descripcion",
+            "ubicacion",
             "activo",
             "tipo",
             "asignado_a",
             "falla",
+            "prioridad",
+            "fecha_inicio",
+            "vencimiento",
+            "recurrencia",
+            "tiempo_estimado_minutos",
         ]
         labels = {
-            "titulo": "Descripción",
-            "descripcion": "Notas",
-            "asignado_a": "Asignado a",
+            "titulo": "¿Qué hay que hacer?",
+            "descripcion": "Descripción",
+            "asignado_a": "Asignar a",
+            "ubicacion": "Ubicación",
+            "prioridad": "Prioridad",
+            "fecha_inicio": "Fecha de inicio",
+            "vencimiento": "Fecha de vencimiento",
+            "recurrencia": "Recurrencia",
+            "tipo": "Tipo de trabajo",
+            "tiempo_estimado_minutos": "Tiempo estimado (minutos)",
         }
         widgets = {
             "titulo": forms.Textarea(
-                attrs={"rows": 3, "placeholder": "Ingrese una descripción"}
+                attrs={"rows": 3, "placeholder": "¿Qué hay que hacer?"}
             ),
-            "descripcion": forms.Textarea(attrs={"rows": 3}),
+            "descripcion": forms.Textarea(attrs={"rows": 3, "placeholder": "Agregar una descripción"}),
+            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
+            "vencimiento": forms.DateInput(attrs={"type": "date"}),
+            "tiempo_estimado_minutos": forms.NumberInput(attrs={"min": 0}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -193,6 +209,18 @@ class RegistroMantenimientoForm(forms.ModelForm):
         if "asignado_a" in self.fields:
             self.fields["asignado_a"].required = False
             self.fields["asignado_a"].queryset = _operarios_queryset()
+        if "ubicacion" in self.fields:
+            self.fields["ubicacion"].required = False
+        if "prioridad" in self.fields:
+            self.fields["prioridad"].required = False
+        if "fecha_inicio" in self.fields:
+            self.fields["fecha_inicio"].required = False
+        if "vencimiento" in self.fields:
+            self.fields["vencimiento"].required = False
+        if "recurrencia" in self.fields:
+            self.fields["recurrencia"].required = False
+        if "tiempo_estimado_minutos" in self.fields:
+            self.fields["tiempo_estimado_minutos"].required = False
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Formulario para evidencia detallada
