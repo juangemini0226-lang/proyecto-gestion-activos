@@ -32,15 +32,17 @@ from .models import (
 
 
 def redirect_buscar_a_detalle(request, codigo: str):
-    """Pequeño atajo que redirige un código o número de activo a su detalle."""
-    codigo = codigo.strip()
-    activo = Activo.objects.filter(Q(codigo=codigo) | Q(numero_activo=codigo)).first()
-    if not activo:
-        messages.error(request, "Activo no encontrado")
-        return redirect(request.META.get("HTTP_REFERER") or "activos:activos_list")
+    """Pequeño atajo que redirige un código a su vista de detalle.
+
+    Permite buscar tanto por el ``codigo`` como por el ``numero_activo`` sin
+    importar si el usuario ingresa mayúsculas o minúsculas. Se normaliza el
+    valor redirigiendo con el código oficial del activo.
+    """
+    activo = get_object_or_404(
+        Activo,
+        Q(codigo__iexact=codigo) | Q(numero_activo__iexact=codigo),
+    )
     return redirect("activos:detalle_activo_por_codigo", codigo=activo.codigo)
-
-
 @login_required
 def activos_list(request):
     """Listado sencillo de activos."""
