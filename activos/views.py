@@ -163,7 +163,8 @@ def ordenes_list(request):
         (nov, True) for nov in novedades_qs.order_by("-fecha")
     ]
     items.sort(
-        key=lambda tup: getattr(tup[0], "fecha_creacion", getattr(tup[0], "fecha")),
+        key=lambda tup: getattr(tup[0], "fecha_creacion", None)
+        or getattr(tup[0], "fecha", None),
         reverse=True,
     )
 
