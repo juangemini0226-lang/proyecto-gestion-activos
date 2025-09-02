@@ -10,6 +10,16 @@
     </style>
 </head>
 <body>
+    {% if messages %}
+    <div class="container position-fixed top-0 start-0 end-0 mt-3" style="z-index:1000;">
+        {% for message in messages %}
+        <div class="alert alert-warning alert-dismissible fade show mx-auto" role="alert" style="max-width:500px;">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     <div class="card shadow-sm">
         <div class="card-body text-center">
             <h4 class="card-title mb-3">Escanear Código QR</h4>
