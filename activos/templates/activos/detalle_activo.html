@@ -48,7 +48,7 @@
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <h2 class="h6 mb-3">Reportar Novedad</h2>
-      <form method="post">
+      <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ novedad_form.as_p }}
         <button type="submit" class="btn btn-primary">Guardar</button>

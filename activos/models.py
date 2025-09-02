@@ -379,11 +379,20 @@ class RegistroCiclosSemanal(models.Model):
 
 # -------- Novedades de activos --------
 class Novedad(models.Model):
+    class Etapa(models.TextChoices):
+        TALLER_MOLDES = "Taller Moldes", "Taller Moldes"
+        ALISTAMIENTO_MOLDES = "Alistamiento Moldes", "Alistamiento Moldes"
+        MONTAJE_MOLDES = "Montaje Moldes", "Montaje Moldes"
+        PLANTA_PRODUCCION = "Planta - Producción", "Planta - Producción"
+
     activo = models.ForeignKey(Activo, on_delete=models.CASCADE, related_name="novedades")
-    etapa = models.CharField(max_length=100)
+    etapa = models.CharField(max_length=100, choices=Etapa.choices)
     descripcion = models.TextField()
     falla = models.ForeignKey(
         CatalogoFalla, null=True, blank=True, on_delete=models.SET_NULL, related_name="novedades"
+    )
+    archivo = models.FileField(
+        upload_to="novedades/%Y/%m/%d/", null=True, blank=True
     )
     fecha = models.DateTimeField(auto_now_add=True)
     reportado_por = models.ForeignKey(

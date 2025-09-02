@@ -8,7 +8,7 @@ def test_registra_novedad(activo, user):
     falla = CatalogoFalla.objects.create(codigo="F1", nombre="Falla 1")
     nov = Novedad.objects.create(
         activo=activo,
-        etapa="INICIO",
+        etapa=Novedad.Etapa.TALLER_MOLDES,
         descripcion="Se detectó algo",
         falla=falla,
         reportado_por=user,
@@ -22,7 +22,7 @@ def test_escalado_por_regla(activo, user, settings):
     falla = CatalogoFalla.objects.create(codigo="CRIT", nombre="Critica")
     nov = Novedad.objects.create(
         activo=activo,
-        etapa="INICIO",
+        etapa=Novedad.Etapa.TALLER_MOLDES,
         descripcion="Falla crítica",
         falla=falla,
         reportado_por=user,
@@ -39,3 +39,15 @@ def test_detalle_activo_muestra_formulario(activo, client, user):
     resp = client.get(url)
     assert resp.status_code == 200
     assert b"Reportar Novedad" in resp.content
+    #assert b'name="descripcion"' in resp.content
+
+    resp = client.post(
+        url,
+        {
+            "etapa": "INICIO",
+            "descripcion": "Algo sucede",
+            "falla": "",
+        },
+    )
+    assert resp.status_code == 302
+    assert Novedad.objects.filter(activo=activo, descripcion="Algo sucede").exists()

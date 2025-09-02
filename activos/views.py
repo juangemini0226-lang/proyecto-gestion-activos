@@ -10,7 +10,7 @@ from core.views import es_supervisor
 
 from horometro.models import AlertaMantenimiento
 
-from .forms import ActivoForm, AsignarOTForm, RegistroMantenimientoForm
+from .forms import ActivoForm, AsignarOTForm, RegistroMantenimientoForm, NovedadForm
 from .models import (
     Activo,
     DetalleMantenimiento,
@@ -317,14 +317,25 @@ def cambiar_estado_ot(request, pk: int):
 def detalle_activo_por_codigo(request, codigo: str):
     """Detalle de un activo buscado por su código."""
     activo = get_object_or_404(Activo, codigo=codigo)
-
     ots = (
         RegistroMantenimiento.objects.filter(activo=activo)
         .select_related("activo")
         .order_by("-id")[:20]
     )
 
-    ctx = {"activo": activo, "ots": ots}
+    if request.method == "POST":
+        form = NovedadForm(request.POST, request.FILES)
+        if form.is_valid():
+            novedad = form.save(commit=False)
+            novedad.activo = activo
+            if request.user.is_authenticated:
+                novedad.reportado_por = request.user
+            novedad.save()
+            return redirect("activos:detalle_activo_por_codigo", codigo=codigo)
+    else:
+        form = NovedadForm()
+
+    ctx = {"activo": activo, "ots": ots, "novedad_form": form}
     return render(request, "activos/detalle_activo.html", ctx)
 
 

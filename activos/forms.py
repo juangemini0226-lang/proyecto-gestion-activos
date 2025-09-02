@@ -301,10 +301,11 @@ class EvidenciaDetalleForm(forms.ModelForm):
 # ──────────────────────────────────────────────────────────────────────────────
 class NovedadForm(forms.ModelForm):
     crear_ot = forms.BooleanField(required=False, label="Crear OT")
+    archivo = forms.FileField(required=False, label="Adjunto")
 
     class Meta:
         model = Novedad
-        fields = ["etapa", "descripcion", "falla", "crear_ot"]
+        fields = ["etapa", "descripcion", "falla", "archivo", "crear_ot"]
         widgets = {
             "descripcion": forms.Textarea(attrs={"rows": 3}),
         }
