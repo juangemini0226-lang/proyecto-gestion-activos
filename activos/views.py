@@ -322,6 +322,7 @@ def detalle_activo_por_codigo(request, codigo: str):
         .select_related("activo")
         .order_by("-id")[:20]
     )
+    novedades = activo.novedades.select_related("orden_mantenimiento").order_by("-fecha")
 
     if request.method == "POST":
         form = NovedadForm(request.POST, request.FILES)
@@ -335,7 +336,12 @@ def detalle_activo_por_codigo(request, codigo: str):
     else:
         form = NovedadForm()
 
-    ctx = {"activo": activo, "ots": ots, "novedad_form": form}
+        ctx = {
+        "activo": activo,
+        "ots": ots,
+        "novedades": novedades,
+        "novedad_form": form,
+    }
     return render(request, "activos/detalle_activo.html", ctx)
 
 

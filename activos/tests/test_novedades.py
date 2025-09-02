@@ -51,3 +51,18 @@ def test_detalle_activo_muestra_formulario(activo, client, user):
     )
     assert resp.status_code == 302
     assert Novedad.objects.filter(activo=activo, descripcion="Algo sucede").exists()
+
+
+@pytest.mark.django_db
+def test_detalle_activo_muestra_novedades_en_alerta(activo, client, user):
+    Novedad.objects.create(
+        activo=activo,
+        etapa=Novedad.Etapa.TALLER_MOLDES,
+        descripcion="Debe revisarse",
+    )
+    client.force_login(user)
+    url = reverse("activos:detalle_activo_por_codigo", args=[activo.codigo])
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"Debe revisarse" in resp.content
+    assert b"alert-warning" in resp.content
