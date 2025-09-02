@@ -1,47 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Lector de QR</title>
+    <meta charset="UTF-8">
+    <title>Escaner de Código QR</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/pulse/bootstrap.min.css">
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-        #qr-reader { width: 500px; }
-        #qr-reader-results { margin-top: 20px; font-size: 1.2em; }
-        @media (max-width: 600px) {
-            #qr-reader { width: 100%; }
-        }
+        body {display:flex; align-items:center; justify-content:center; min-height:100vh; background-color:#f8f9fa;}
+        .card {max-width:500px; width:100%;}
     </style>
 </head>
 <body>
-    <h1>Escaner de Código QR</h1>
-
-    <div id="qr-reader"></div>
-
-    <div id="qr-reader-results"></div>
+    <div class="card shadow-sm">
+        <div class="card-body text-center">
+            <h4 class="card-title mb-3">Escanear Código QR</h4>
+            <div id="qr-reader" class="mb-3"></div>
+            <p class="mb-2">Buscar por código o # activo</p>
+            <div class="input-group mb-3">
+                <input type="text" id="manual-code" class="form-control" placeholder="Ej. MOL10598 o 10598">
+                <button id="manual-btn" class="btn btn-primary">Buscar</button>
+            </div>
+            <div id="qr-reader-results"></div>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-
     <script>
-        // 2. Esta función se ejecuta cuando la librería detecta un QR
-        function onScanSuccess(decodedText, decodedResult) {
-        // La variable decodedText contiene el código del activo, ej: "MOL-001"
-        console.log(`Código escaneado: ${decodedText}`);
-
-        // Construimos la URL a la que queremos ir.
-        // OJO: Asegúrate de que la URL base ('/activos/buscar/') sea correcta.
-        const url = `/activos/buscar/${decodedText}/`;
-
-        // Le decimos al navegador que vaya a esa nueva URL.
-        window.location.href = url;
-    }
-
-        // 3. Creamos una nueva instancia del lector de QR
-        var html5QrcodeScanner = new Html5QrcodeScanner(
-            "qr-reader", // El ID del div donde se mostrará el lector
-            { fps: 10, qrbox: 250 } // Configuración: 10 frames por segundo y un cuadro de escaneo de 250px
-        );
-
-        // 4. Iniciamos el renderizado del escáner
+        function goTo(code){
+            window.location.href = `/activos/buscar/${code}/`;
+        }
+        function onScanSuccess(decodedText, decodedResult){
+            goTo(decodedText);
+        }
+        var html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
         html5QrcodeScanner.render(onScanSuccess);
+        document.getElementById('manual-btn').addEventListener('click', function(){
+            const code = document.getElementById('manual-code').value.trim();
+            if(code){ goTo(code); }
+        });
     </script>
 </body>
 </html>

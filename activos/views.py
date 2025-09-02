@@ -32,8 +32,13 @@ from .models import (
 
 
 def redirect_buscar_a_detalle(request, codigo: str):
-    """Pequeño atajo que redirige un código a su vista de detalle."""
-    return redirect("activos:detalle_activo_por_codigo", codigo=codigo)
+    """Pequeño atajo que redirige un código o número de activo a su detalle."""
+    codigo = codigo.strip()
+    activo = Activo.objects.filter(Q(codigo=codigo) | Q(numero_activo=codigo)).first()
+    if not activo:
+        messages.error(request, "Activo no encontrado")
+        return redirect(request.META.get("HTTP_REFERER") or "activos:activos_list")
+    return redirect("activos:detalle_activo_por_codigo", codigo=activo.codigo)
 
 
 @login_required
@@ -347,7 +352,10 @@ def cambiar_estado_ot(request, pk: int):
 
 def detalle_activo_por_codigo(request, codigo: str):
     """Detalle de un activo buscado por su código."""
-    activo = get_object_or_404(Activo, codigo=codigo)
+    activo = get_object_or_404(
+        Activo,
+        Q(codigo__iexact=codigo) | Q(numero_activo__iexact=codigo),
+    )
     ots = (
         RegistroMantenimiento.objects.filter(activo=activo)
         .select_related("activo")
