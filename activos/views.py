@@ -10,7 +10,13 @@ from core.views import es_supervisor
 
 from horometro.models import AlertaMantenimiento
 
-from .forms import ActivoForm, AsignarOTForm, RegistroMantenimientoForm, NovedadForm
+from .forms import (
+    ActivoForm,
+    AsignarOTForm,
+    RegistroMantenimientoForm,
+    NovedadForm,
+    CrearOTDesdeNovedadForm,
+)
 from .models import (
     Activo,
     DetalleMantenimiento,
@@ -21,6 +27,7 @@ from .models import (
     TareaMantenimiento,
     TipoOT,
     Ubicacion,
+    Novedad,
 )
 
 
@@ -336,13 +343,51 @@ def detalle_activo_por_codigo(request, codigo: str):
     else:
         form = NovedadForm()
 
-        ctx = {
+    ctx = {
         "activo": activo,
         "ots": ots,
         "novedades": novedades,
         "novedad_form": form,
     }
     return render(request, "activos/detalle_activo.html", ctx)
+
+
+@login_required
+def novedad_detail(request, pk: int):
+    novedad = get_object_or_404(
+        Novedad.objects.select_related("activo", "orden_mantenimiento"), pk=pk
+    )
+    form = None
+    if novedad.orden_mantenimiento_id is None:
+        if request.method == "POST":
+            form = CrearOTDesdeNovedadForm(request.POST)
+            if form.is_valid():
+                ot = form.save(commit=False)
+                ot.activo = novedad.activo
+                ot.creado_por = request.user
+                ot.estado = EstadoOT.PEN
+                ot.tipo = TipoOT.COR
+                if novedad.falla_id and not ot.falla_id:
+                    ot.falla = novedad.falla
+                ot.save()
+                _apply_best_template_or_fallback(ot)
+                novedad.orden_mantenimiento = ot
+                novedad.save(update_fields=["orden_mantenimiento"])
+                messages.success(
+                    request,
+                    f"OT #{ot.id} creada para {novedad.activo.codigo}.",
+                )
+                return redirect("activos:checklist_mantenimiento", pk=ot.pk)
+        else:
+            form = CrearOTDesdeNovedadForm(
+                initial={
+                    "titulo": f"Novedad #{novedad.id} - {novedad.activo.codigo}",
+                    "descripcion": novedad.descripcion,
+                }
+            )
+
+    ctx = {"novedad": novedad, "form": form}
+    return render(request, "activos/novedad_detail.html", ctx)
 
 
 @login_required

@@ -44,7 +44,7 @@ def test_detalle_activo_muestra_formulario(activo, client, user):
     resp = client.post(
         url,
         {
-            "etapa": "INICIO",
+            "etapa": Novedad.Etapa.TALLER_MOLDES,
             "descripcion": "Algo sucede",
             "falla": "",
         },
@@ -66,3 +66,35 @@ def test_detalle_activo_muestra_novedades_en_alerta(activo, client, user):
     assert resp.status_code == 200
     assert b"Debe revisarse" in resp.content
     assert b"alert-warning" in resp.content
+
+
+@pytest.mark.django_db
+def test_novedad_detail_muestra_form(client, activo, user):
+    nov = Novedad.objects.create(
+        activo=activo,
+        etapa=Novedad.Etapa.TALLER_MOLDES,
+        descripcion="Revisar ruido",
+        reportado_por=user,
+    )
+    client.force_login(user)
+    url = reverse("activos:novedad_detail", args=[nov.pk])
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"Crear OT" in resp.content
+
+
+@pytest.mark.django_db
+def test_novedad_detail_crea_ot(client, activo, user):
+    nov = Novedad.objects.create(
+        activo=activo,
+        etapa=Novedad.Etapa.TALLER_MOLDES,
+        descripcion="Generar OT",
+        reportado_por=user,
+    )
+    client.force_login(user)
+    url = reverse("activos:novedad_detail", args=[nov.pk])
+    resp = client.post(url, {"titulo": "Trabajo"}, follow=True)
+    assert resp.status_code == 200
+    nov.refresh_from_db()
+    assert nov.orden_mantenimiento_id is not None
+    assert RegistroMantenimiento.objects.filter(pk=nov.orden_mantenimiento_id).exists()

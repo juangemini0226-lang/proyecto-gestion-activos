@@ -49,7 +49,9 @@
     <div class="alert alert-warning d-flex justify-content-between align-items-center mb-2">
       <div>
         <strong>{{ novedad.get_etapa_display|default:novedad.etapa }}</strong>:
-        {{ novedad.descripcion }}
+        <a href="{% url 'activos:novedad_detail' novedad.id %}" class="link-underline link-underline-opacity-0">
+          {{ novedad.descripcion }}
+        </a>
         <small class="text-muted">{{ novedad.fecha|date:"Y-m-d H:i" }}</small>
       </div>
       <div>

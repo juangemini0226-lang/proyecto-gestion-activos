@@ -316,3 +316,15 @@ class NovedadForm(forms.ModelForm):
         if falla_field:
             falla_field.required = False
             falla_field.queryset = CatalogoFalla.objects.order_by("nombre")
+
+
+class CrearOTDesdeNovedadForm(RegistroMantenimientoForm):
+    class Meta(RegistroMantenimientoForm.Meta):
+        fields = [
+            "titulo",
+            "descripcion",
+            "asignado_a",
+            "prioridad",
+            "fecha_inicio",
+            "vencimiento",
+        ]

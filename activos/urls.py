@@ -18,4 +18,5 @@ urlpatterns = [
     path("crear-ot-desde-alerta/<int:pk>/", views.crear_ot_desde_alerta, name="crear_ot_desde_alerta"),
     path("mantenimiento/<int:pk>/checklist/", views.checklist_mantenimiento, name="checklist_mantenimiento"),
     path("mantenimiento/<int:pk>/cambiar-estado/", views.cambiar_estado_ot, name="cambiar_estado_ot"),
+    path("novedad/<int:pk>/", views.novedad_detail, name="novedad_detail"),
 ]

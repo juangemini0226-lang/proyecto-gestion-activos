@@ -4,9 +4,9 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django import forms
 
-from activos.models import RegistroMantenimiento, Activo
+from django.db.models import Count
+from activos.models import RegistroMantenimiento, Activo, Novedad
 from horometro.models import LecturaHorometro, AlertaMantenimiento
-
 
 # ----------------- Home -----------------
 @login_required
@@ -116,11 +116,35 @@ def dashboard_horometro(request):
 @login_required
 def dashboard_novedades(request):
     """Dashboard con gráficos de novedades."""
+    fallas_qs = (
+        Novedad.objects.values("falla__nombre")
+        .annotate(total=Count("id"))
+        .order_by("-total")
+    )
+    labels_fallas = [row["falla__nombre"] or "Sin falla" for row in fallas_qs]
+    counts_fallas = [row["total"] for row in fallas_qs]
+
+    total = sum(counts_fallas) or 1
+    cumulative = []
+    acc = 0
+    for c in counts_fallas:
+        acc += c
+        cumulative.append(round(acc * 100 / total, 2))
+
+    etapas_qs = (
+        Novedad.objects.values("etapa")
+        .annotate(total=Count("id"))
+        .order_by("-total")
+    )
+    labels_etapas = [row["etapa"] or "Sin etapa" for row in etapas_qs]
+    counts_etapas = [row["total"] for row in etapas_qs]
+
     context = {
-        "labels_fallas": [],
-        "counts_fallas": [],
-        "cumulative_fallas": [],
-        "labels_etapas": [],
-        "counts_etapas": [],
+        "labels_fallas": labels_fallas,
+        "counts_fallas": counts_fallas,
+        "cumulative_fallas": cumulative,
+        "labels_etapas": labels_etapas,
+        "counts_etapas": counts_etapas,
+        "section": "dashboard",
     }
     return render(request, "core/dashboard_novedades.html", context)

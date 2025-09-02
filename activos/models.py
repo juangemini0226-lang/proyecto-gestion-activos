@@ -380,6 +380,7 @@ class RegistroCiclosSemanal(models.Model):
 # -------- Novedades de activos --------
 class Novedad(models.Model):
     class Etapa(models.TextChoices):
+        INICIO = "INICIO", "Inicio"
         TALLER_MOLDES = "Taller Moldes", "Taller Moldes"
         ALISTAMIENTO_MOLDES = "Alistamiento Moldes", "Alistamiento Moldes"
         MONTAJE_MOLDES = "Montaje Moldes", "Montaje Moldes"

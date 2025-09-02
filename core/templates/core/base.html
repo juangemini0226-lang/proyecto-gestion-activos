@@ -60,6 +60,11 @@
         </a>
       </li>
       <li>
+        <a href="{% url 'dashboard_novedades' %}" class="nav-link {% if section == 'dashboard' %}active{% endif %}">
+          <i class="bi bi-bar-chart"></i> Dashboard
+        </a>
+      </li>
+      <li>
         <a href="{% url 'activos:activos_list' %}" class="nav-link {% if section == 'activos' %}active{% endif %}">
           <i class="bi bi-box"></i> Activos
         </a>
