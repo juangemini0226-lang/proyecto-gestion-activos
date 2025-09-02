@@ -96,47 +96,70 @@
         </tr>
       </thead>
       <tbody>
-      {% for ot in page_obj.object_list %}
+      {% for obj, es_novedad in page_obj.object_list %}
         <tr>
-          <td class="text-muted">#{{ ot.id }}</td>
-          <td>
-            <div class="fw-semibold">{{ ot.activo.codigo }}</div>
-            <div class="small text-muted">{{ ot.activo.nombre }}</div>
-          </td>
-          <td>
-            {% if ot.tipo == 'PRE' %}
-              <span class="badge text-bg-primary">Preventivo</span>
-            {% else %}
-              <span class="badge text-bg-secondary">Correctivo</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if ot.estado == 'PEN' %}
-              <span class="badge text-bg-secondary">Pendiente</span>
-            {% elif ot.estado == 'PRO' %}
-              <span class="badge text-bg-info">En Progreso</span>
-            {% elif ot.estado == 'REV' %}
-              <span class="badge text-bg-warning">Pend. Revisión</span>
-            {% elif ot.estado == 'CER' %}
-              <span class="badge text-bg-success">Cerrada</span>
-            {% endif %}
-          </td>
-          <td>{{ ot.asignado_a.username|default:"—" }}</td>
-          <td class="text-nowrap">{{ ot.vencimiento|date:"Y-m-d"|default:"—" }}</td>
-          <td>{{ ot.ubicacion.nombre|default:"—" }}</td>
-          <td>{{ ot.get_prioridad_display }}</td>
-          <td>{{ ot.creado_por.username|default:"—" }}</td>
-          <td class="text-nowrap">{{ ot.fecha_creacion|date:"Y-m-d H:i" }}</td>
-          <td class="text-end">
-            <div class="btn-group btn-group-sm" role="group">
-              <a href="{% url 'activos:asignar_ot' ot.id %}" class="btn btn-outline-primary">
-                <i class="bi bi-person-gear"></i> Asignar
-              </a>
-              <a href="{% url 'activos:checklist_mantenimiento' ot.id %}" class="btn btn-outline-secondary">
-                <i class="bi bi-card-checklist"></i> Checklist
-              </a>
-            </div>
-          </td>
+          {% if es_novedad %}
+            <td class="text-muted">N{{ obj.id }}</td>
+            <td>
+              <div class="fw-semibold">{{ obj.activo.codigo }}</div>
+              <div class="small text-muted">{{ obj.activo.nombre }}</div>
+            </td>
+            <td><span class="badge text-bg-dark">Novedad</span></td>
+            <td><span class="badge text-bg-danger">Sin asignar OT</span></td>
+            <td>—</td>
+            <td class="text-nowrap">—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>{{ obj.reportado_por.username|default:"—" }}</td>
+            <td class="text-nowrap">{{ obj.fecha|date:"Y-m-d H:i" }}</td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm" role="group">
+                <a href="{% url 'activos:novedad_detail' obj.id %}" class="btn btn-outline-primary">
+                  <i class="bi bi-plus-lg"></i> Crear OT
+                </a>
+              </div>
+            </td>
+          {% else %}
+            <td class="text-muted">#{{ obj.id }}</td>
+            <td>
+              <div class="fw-semibold">{{ obj.activo.codigo }}</div>
+              <div class="small text-muted">{{ obj.activo.nombre }}</div>
+            </td>
+            <td>
+              {% if obj.tipo == 'PRE' %}
+                <span class="badge text-bg-primary">Preventivo</span>
+              {% else %}
+                <span class="badge text-bg-secondary">Correctivo</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if obj.estado == 'PEN' %}
+                <span class="badge text-bg-secondary">Pendiente</span>
+              {% elif obj.estado == 'PRO' %}
+                <span class="badge text-bg-info">En Progreso</span>
+              {% elif obj.estado == 'REV' %}
+                <span class="badge text-bg-warning">Pend. Revisión</span>
+              {% elif obj.estado == 'CER' %}
+                <span class="badge text-bg-success">Cerrada</span>
+              {% endif %}
+            </td>
+            <td>{{ obj.asignado_a.username|default:"—" }}</td>
+            <td class="text-nowrap">{{ obj.vencimiento|date:"Y-m-d"|default:"—" }}</td>
+            <td>{{ obj.ubicacion.nombre|default:"—" }}</td>
+            <td>{{ obj.get_prioridad_display }}</td>
+            <td>{{ obj.creado_por.username|default:"—" }}</td>
+            <td class="text-nowrap">{{ obj.fecha_creacion|date:"Y-m-d H:i" }}</td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm" role="group">
+                <a href="{% url 'activos:asignar_ot' obj.id %}" class="btn btn-outline-primary">
+                  <i class="bi bi-person-gear"></i> Asignar
+                </a>
+                <a href="{% url 'activos:checklist_mantenimiento' obj.id %}" class="btn btn-outline-secondary">
+                  <i class="bi bi-card-checklist"></i> Checklist
+                </a>
+              </div>
+            </td>
+          {% endif %}
         </tr>
       {% empty %}
         <tr>
@@ -148,6 +171,7 @@
       </tbody>
     </table>
   </div>
+
 
   <!-- Paginación -->
   <nav aria-label="Paginación de órdenes">

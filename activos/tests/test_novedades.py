@@ -113,3 +113,20 @@ def test_novedad_detail_crea_ot(client, activo, user):
     nov.refresh_from_db()
     assert nov.orden_mantenimiento_id is not None
     assert RegistroMantenimiento.objects.filter(pk=nov.orden_mantenimiento_id).exists()
+
+
+@pytest.mark.django_db
+def test_ordenes_list_muestra_novedad_sin_ot(client, activo, user):
+    Novedad.objects.create(
+        activo=activo,
+        etapa=Novedad.Etapa.TALLER_MOLDES,
+        descripcion="Novedad pendiente",
+        reportado_por=user,
+    )
+    user.is_superuser = True
+    user.save()
+    client.force_login(user)
+    url = reverse("activos:ordenes_list")
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"Sin asignar OT" in resp.content

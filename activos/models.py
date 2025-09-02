@@ -72,6 +72,7 @@ class CatalogoFalla(models.Model):
 
 # -------- Choices --------
 class EstadoOT(models.TextChoices):
+    SIN = "SIN", "Sin asignar OT"
     PEN = "PEN", "Pendiente"
     PRO = "PRO", "En Progreso"
     REV = "REV", "Pendiente Revisión"

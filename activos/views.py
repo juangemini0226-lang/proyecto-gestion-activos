@@ -108,10 +108,16 @@ def ordenes_list(request):
 
     # 3) Construcción del queryset base
     qs = RegistroMantenimiento.objects.select_related("activo").all()
-
-    # 4) Aplicación de filtros
+    novedades_qs = (
+        Novedad.objects.select_related("activo")
+        .filter(orden_mantenimiento__isnull=True)
+    )
+    #  4) Aplicación de filtros
     if filtros.get("estado"):
-        qs = qs.filter(estado=filtros["estado"])
+        if filtros["estado"] == EstadoOT.SIN:
+            qs = qs.none()
+        else:
+            qs = qs.filter(estado=filtros["estado"])
 
     if filtros.get("tipo"):
         qs = qs.filter(tipo=filtros["tipo"])
@@ -143,9 +149,26 @@ def ordenes_list(request):
             | Q(activo__nombre__icontains=q)
             | Q(asignado_a__username__icontains=q)
         )
+        novedades_qs = novedades_qs.filter(
+            Q(id__icontains=q)
+            | Q(activo__codigo__icontains=q)
+            | Q(activo__nombre__icontains=q)
+            | Q(descripcion__icontains=q)
+        )
 
-    # 5) Paginación y render
-    paginator = Paginator(qs.order_by("-fecha_creacion"), 25)
+    # 5) Unir órdenes y novedades sin OT
+    items = [
+        (ot, False) for ot in qs.order_by("-fecha_creacion")
+    ] + [
+        (nov, True) for nov in novedades_qs.order_by("-fecha")
+    ]
+    items.sort(
+        key=lambda tup: getattr(tup[0], "fecha_creacion", getattr(tup[0], "fecha")),
+        reverse=True,
+    )
+
+    # Paginación y render
+    paginator = Paginator(items, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
 
     context = {
