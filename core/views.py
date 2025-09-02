@@ -111,3 +111,16 @@ def dashboard_horometro(request):
             "limite": limite,
         },
     )
+
+
+@login_required
+def dashboard_novedades(request):
+    """Dashboard con gráficos de novedades."""
+    context = {
+        "labels_fallas": [],
+        "counts_fallas": [],
+        "cumulative_fallas": [],
+        "labels_etapas": [],
+        "counts_etapas": [],
+    }
+    return render(request, "core/dashboard_novedades.html", context)

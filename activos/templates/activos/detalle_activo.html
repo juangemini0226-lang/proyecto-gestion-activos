@@ -44,6 +44,18 @@
     </a>
   </div>
 
+  <!-- Reportar novedad -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h2 class="h6 mb-3">Reportar Novedad</h2>
+      <form method="post">
+        {% csrf_token %}
+        {{ novedad_form.as_p }}
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Órdenes recientes de este activo -->
   <div class="card shadow-sm">
     <div class="card-body">

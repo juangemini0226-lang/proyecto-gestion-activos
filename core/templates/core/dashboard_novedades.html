@@ -1,0 +1,52 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="container py-4">
+  <h1 class="h5 mb-4">Dashboard de Novedades</h1>
+  <canvas id="pareto" height="120"></canvas>
+  <canvas id="pie" height="120" class="mt-4"></canvas>
+</div>
+
+{{ labels_fallas|json_script:"labels-falla-data" }}
+{{ counts_fallas|json_script:"counts-falla-data" }}
+{{ cumulative_fallas|json_script:"cumulative-falla-data" }}
+{{ labels_etapas|json_script:"labels-etapa-data" }}
+{{ counts_etapas|json_script:"counts-etapa-data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const labelsFalla = JSON.parse(document.getElementById('labels-falla-data').textContent || '[]');
+const dataFalla = JSON.parse(document.getElementById('counts-falla-data').textContent || '[]');
+const cumulative = JSON.parse(document.getElementById('cumulative-falla-data').textContent || '[]');
+new Chart(document.getElementById('pareto'), {
+  data: {
+    labels: labelsFalla,
+    datasets: [{
+      type: 'bar',
+      label: 'Cantidad',
+      data: dataFalla
+    }, {
+      type: 'line',
+      label: 'Cumulado %',
+      data: cumulative,
+      yAxisID: 'y1'
+    }]
+  },
+  options: {
+    scales: {
+      y1: {
+        position: 'right',
+        min: 0,
+        max: 100,
+        ticks: { callback: v => v + '%' }
+      }
+    }
+  }
+});
+const labelsEtapa = JSON.parse(document.getElementById('labels-etapa-data').textContent || '[]');
+const dataEtapa = JSON.parse(document.getElementById('counts-etapa-data').textContent || '[]');
+new Chart(document.getElementById('pie'), {
+  type: 'pie',
+  data: { labels: labelsEtapa, datasets: [{ data: dataEtapa }] }
+});
+</script>
+{% endblock %}

@@ -11,6 +11,18 @@ from activos.models import (
     EstadoOT,
     TipoOT,
 )
+
+# Novedad y servicio de escalado son opcionales
+try:
+    from activos.models import Novedad  # type: ignore
+except Exception:  # pragma: no cover - el modelo puede no existir
+    Novedad = None  # type: ignore
+
+try:
+    from .services import escalar_novedad  # type: ignore
+except Exception:  # pragma: no cover - el servicio puede no existir
+    escalar_novedad = None  # type: ignore
+
 from core.models import HistorialOT            # ✅ ahora desde core
 from horometro.models import LecturaHorometro
 
@@ -44,8 +56,8 @@ def _post_ot_changes(sender, instance: RegistroMantenimiento, created, **kwargs)
       - Al pasar a PRO/REV fija sellos de tiempo si faltan.
       - Al cerrar (CER) y si es PRE, fija baseline en la lectura correspondiente y reinicia ΔPrev (no cierra alertas).
     """
-    old = getattr(instance, "_old_estado", None)
-    new = instance.estado
+    old: EstadoOT | None = getattr(instance, "_old_estado", None)
+    new: EstadoOT = instance.estado
 
     # Si es creación, registrar estado inicial
     if created:
@@ -100,7 +112,7 @@ def _post_ot_changes(sender, instance: RegistroMantenimiento, created, **kwargs)
             y, w = _iso_year_week(base_date)
 
         # Buscar lectura de esa semana; si no hay, usar la última del activo
-        lh = (
+        lh: LecturaHorometro | None = (
             LecturaHorometro.objects
             .filter(activo=instance.activo, anio=y, semana=w)
             .order_by("anio", "semana")
@@ -117,7 +129,7 @@ def _post_ot_changes(sender, instance: RegistroMantenimiento, created, **kwargs)
             return
 
         # Prioridad: lectura registrada en la OT -> lectura semanal -> lectura importada (ciclos_oracle)
-        lectura = (
+        lectura: Decimal | None = (
             instance.lectura_ejecucion
             or getattr(lh, "lectura", None)
             or getattr(lh, "ciclos_oracle", None)
@@ -149,3 +161,11 @@ def _recalcular_alertas_safe(activo_id: int):
     except Exception:
         import logging
         logging.getLogger(__name__).exception("Error recalculando alertas para activo %s", activo_id)
+
+
+if Novedad is not None and escalar_novedad is not None:
+    @receiver(post_save, sender=Novedad)
+    def _escalar_novedad(sender, instance, created, **kwargs):
+        """Escala la novedad según reglas configurables."""
+        if created:
+            escalar_novedad(instance)

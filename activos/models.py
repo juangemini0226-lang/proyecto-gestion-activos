@@ -377,6 +377,33 @@ class RegistroCiclosSemanal(models.Model):
     def __str__(self): return f"{self.activo.codigo} - Año {self.año}, Semana {self.semana}: {self.ciclos} ciclos"
 
 
+# -------- Novedades de activos --------
+class Novedad(models.Model):
+    activo = models.ForeignKey(Activo, on_delete=models.CASCADE, related_name="novedades")
+    etapa = models.CharField(max_length=100)
+    descripcion = models.TextField()
+    falla = models.ForeignKey(
+        CatalogoFalla, null=True, blank=True, on_delete=models.SET_NULL, related_name="novedades"
+    )
+    fecha = models.DateTimeField(auto_now_add=True)
+    reportado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="novedades_reportadas",
+    )
+    orden_mantenimiento = models.ForeignKey(
+        "RegistroMantenimiento",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="novedades",
+    )
+
+    def __str__(self):
+        return f"{self.activo.codigo} - {self.descripcion[:20]}"
+
+
 # -------- Evidencias por detalle --------
 class EvidenciaDetalle(models.Model):
     class TipoArchivo(models.TextChoices):
@@ -402,6 +429,7 @@ def ot_adjuntos_path(instance, filename):
 class AdjuntoWO(models.Model):
     registro = models.ForeignKey("RegistroMantenimiento", on_delete=models.CASCADE, related_name="adjuntos")
     archivo = models.FileField(upload_to=ot_adjuntos_path)
+
     subido_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="wo_adjuntos")
     creado = models.DateTimeField(auto_now_add=True)
 

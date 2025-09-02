@@ -1,34 +1,31 @@
 # activos/views.py
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.shortcuts import get_object_or_404, redirect, render
-from django.db.models import Q
 from django.core.paginator import Paginator
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from core.views import es_supervisor
 
+from horometro.models import AlertaMantenimiento
+
+from .forms import ActivoForm, AsignarOTForm, RegistroMantenimientoForm
 from .models import (
     Activo,
-    RegistroMantenimiento,
-    TareaMantenimiento,
     DetalleMantenimiento,
     EstadoOT,
-    TipoOT,
-    PrioridadOT,
     PlantillaChecklist,
+    PrioridadOT,
+    RegistroMantenimiento,
+    TareaMantenimiento,
+    TipoOT,
     Ubicacion,
 )
-from .forms import (
-    RegistroMantenimientoForm,
-    EvidenciaDetalleForm,  # si no se usa aún, no afecta
-    AsignarOTForm,
-    ActivoForm,
-)
-from horometro.models import AlertaMantenimiento
 
 
 def redirect_buscar_a_detalle(request, codigo: str):
+    """Pequeño atajo que redirige un código a su vista de detalle."""
     return redirect("activos:detalle_activo_por_codigo", codigo=codigo)
 
 
@@ -285,10 +282,8 @@ def checklist_mantenimiento(request, pk: int):
 
     # Si más adelante se procesan formularios de evidencias, hacerlo aquí.
     # if request.method == "POST":
-    #     form = EvidenciaDetalleForm(request.POST, request.FILES)
-    #     if form.is_valid():
-    #         ...
-    #         return redirect("activos:checklist_mantenimiento", pk=pk)
+    #     ...
+    #     return redirect("activos:checklist_mantenimiento", pk=pk)
 
     return render(
         request,

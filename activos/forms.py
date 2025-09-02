@@ -10,6 +10,46 @@ from .models import (
     EvidenciaDetalle,
     CatalogoFalla,
     EstadoOT,
+    Novedad,
+)
+
+User = get_user_model()
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Formularios de Activos
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class ActivoForm(forms.ModelForm):
+    class Meta:
+        model = Activo
+        fields = [
+            "codigo",
+            "numero_activo",
+            "nombre",
+            "peso",
+            "familia",
+            "categoria",
+            "estado",
+            "ubicacion",
+        ]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Utilidades
+class RegistroMantenimientoForm(forms.ModelForm):
+        from django import forms
+from django.db.models import Q
+from django.contrib.auth import get_user_model
+
+from .models import (
+    Activo,
+    TareaMantenimiento,
+    PlantillaChecklist,
+    RegistroMantenimiento,
+    EvidenciaDetalle,
+    CatalogoFalla,
+    EstadoOT,
+    Novedad,
 )
 
 User = get_user_model()
@@ -151,7 +191,7 @@ class AsignarOTForm(forms.Form):
     operario = forms.ModelChoiceField(
         queryset=_operarios_queryset(),
         required=True,
-        label="Asignar a"
+        label="Asignar a",
     )
 
     def __init__(self, *args, **kwargs):
@@ -210,24 +250,39 @@ class RegistroMantenimientoForm(forms.ModelForm):
             base_class = "form-select" if isinstance(widget, forms.Select) else "form-control"
             widget.attrs["class"] = f"{widget.attrs.get('class', '')} {base_class}".strip()
 
-        if "falla" in self.fields:
-            self.fields["falla"].required = False
-            self.fields["falla"].queryset = CatalogoFalla.objects.all().order_by("nombre")
-        if "asignado_a" in self.fields:
-            self.fields["asignado_a"].required = False
-            self.fields["asignado_a"].queryset = _operarios_queryset()
-        if "ubicacion" in self.fields:
-            self.fields["ubicacion"].required = False
-        if "prioridad" in self.fields:
-            self.fields["prioridad"].required = False
-        if "fecha_inicio" in self.fields:
-            self.fields["fecha_inicio"].required = False
-        if "vencimiento" in self.fields:
-            self.fields["vencimiento"].required = False
-        if "recurrencia" in self.fields:
-            self.fields["recurrencia"].required = False
-        if "tiempo_estimado_minutos" in self.fields:
-            self.fields["tiempo_estimado_minutos"].required = False
+        falla_field = self.fields.get("falla")
+        if falla_field:
+            falla_field.required = False
+            falla_field.queryset = CatalogoFalla.objects.order_by("nombre")
+
+        asignado_field = self.fields.get("asignado_a")
+        if asignado_field:
+            asignado_field.required = False
+            asignado_field.queryset = _operarios_queryset()
+
+        ubicacion_field = self.fields.get("ubicacion")
+        if ubicacion_field:
+            ubicacion_field.required = False
+
+        prioridad_field = self.fields.get("prioridad")
+        if prioridad_field:
+            prioridad_field.required = False
+
+        fecha_inicio_field = self.fields.get("fecha_inicio")
+        if fecha_inicio_field:
+            fecha_inicio_field.required = False
+
+        vencimiento_field = self.fields.get("vencimiento")
+        if vencimiento_field:
+            vencimiento_field.required = False
+
+        recurrencia_field = self.fields.get("recurrencia")
+        if recurrencia_field:
+            recurrencia_field.required = False
+
+        tiempo_estimado_field = self.fields.get("tiempo_estimado_minutos")
+        if tiempo_estimado_field:
+            tiempo_estimado_field.required = False
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Formulario para evidencia detallada
@@ -239,3 +294,24 @@ class EvidenciaDetalleForm(forms.ModelForm):
         widgets = {
             "archivo": forms.ClearableFileInput(attrs={"class": "form-control"})
         }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Reportar novedad de activo
+# ──────────────────────────────────────────────────────────────────────────────
+class NovedadForm(forms.ModelForm):
+    crear_ot = forms.BooleanField(required=False, label="Crear OT")
+
+    class Meta:
+        model = Novedad
+        fields = ["etapa", "descripcion", "falla", "crear_ot"]
+        widgets = {
+            "descripcion": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        falla_field = self.fields.get("falla")
+        if falla_field:
+            falla_field.required = False
+            falla_field.queryset = CatalogoFalla.objects.order_by("nombre")

@@ -16,6 +16,7 @@ urlpatterns = [
     #path("activos/", include("activos.urls")),
     path("horometro/", include("horometro.urls")),
     path("activos/", include(("activos.urls", "activos"), namespace="activos")),
+    path("reports/", include(("reports.urls", "reports"), namespace="reports")),
 ]
 
 # Archivos de usuario (MEDIA) sólo en desarrollo

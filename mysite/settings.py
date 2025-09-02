@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     #"horometro",
     "horometro.apps.HorometroConfig",
     'activos.apps.ActivosConfig',
+    'reports.apps.ReportsConfig',
 ]
 
 MIDDLEWARE = [
@@ -131,3 +132,6 @@ LOGIN_REDIRECT_URL = '/'
 
 # Después de que un usuario cierre sesión, redirígelo a la página de login
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# Reglas para escalar novedades automáticamente
+NOVEDAD_FALLAS_CRITICAS = []
