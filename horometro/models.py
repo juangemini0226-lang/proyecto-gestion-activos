@@ -111,6 +111,12 @@ class AlertaMantenimiento(models.Model):
             models.Index(fields=["anio", "semana"]),
             models.Index(fields=["activo"]),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["activo", "anio", "semana"],
+                name="uniq_alerta_activo_anio_semana",
+            )
+        ]
         ordering = ["-anio", "-semana", "activo__codigo"]
 
     def __str__(self):
@@ -120,31 +126,3 @@ class AlertaMantenimiento(models.Model):
     def abierta(self) -> bool:
         return self.estado in {"NUEVA", "EN_PROCESO"}
 
-
-class AlertaMantenimiento(models.Model):
-    ESTADOS = (
-        ("NUEVA", "Nueva"),
-        ("EN_PROCESO", "En proceso"),
-        ("CERRADA", "Cerrada"),
-    )
-    activo = models.ForeignKey(Activo, on_delete=models.PROTECT, related_name="alertas_mant")
-    anio = models.PositiveSmallIntegerField()
-    semana = models.PositiveSmallIntegerField()
-    valor_ciclos = models.DecimalField(max_digits=12, decimal_places=2)   # delta de la semana
-    umbral = models.DecimalField(max_digits=12, decimal_places=2, default=70000)
-    estado = models.CharField(max_length=12, choices=ESTADOS, default="NUEVA")
-
-    creado_en = models.DateTimeField(auto_now_add=True)
-    actualizado_en = models.DateTimeField(auto_now=True)
-    cerrado_en = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["activo", "anio", "semana"],
-                name="uniq_alerta_activo_anio_semana",
-            )
-        ]
-
-    def __str__(self):
-        return f"[{self.estado}] {self.activo} {self.anio}-W{self.semana:02d} ({self.valor_ciclos}/{self.umbral})"
