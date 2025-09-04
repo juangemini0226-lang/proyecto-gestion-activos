@@ -23,7 +23,7 @@ class UploadForm(forms.Form):
     archivo = forms.FileField(label="Archivo Excel")
     hoja = forms.CharField(
         required=False, label="Hoja",
-        help_text="Nombre exacto de la hoja (opcional)"
+        help_text="Nombre exacto de la hoja (opcional)",
     )
 
     # Defaults: ISO actuales (compatible py3.8+)
@@ -39,9 +39,8 @@ class UploadForm(forms.Form):
         required=False,
         initial=False,  # apagado por defecto para cargas históricas
         label="Generar alertas",
-        help_text="Crear/actualizar alertas a partir de esta carga"
+        help_text="Crear/actualizar alertas a partir de esta carga",
     )
-
     def clean_hoja(self):
         s = (self.cleaned_data.get("hoja") or "").strip()
         return s or None
@@ -81,6 +80,7 @@ def subir_excel(request):
                         "form": form,
                         "resultado": res,
                         "dry": form.cleaned_data["dry_run"],
+                        "section": "horometro",
                     },
                 )
             except Exception as e:
@@ -90,7 +90,58 @@ def subir_excel(request):
     else:
         form = UploadForm()
 
-    return render(request, "horometro/upload.html", {"form": form})
+    return render(request, "horometro/upload.html", {"form": form, "section": "horometro"})
+
+
+# -------- Dashboard --------
+@login_required
+def dashboard(request):
+    lecturas = (
+        LecturaHorometro.objects.select_related("activo")
+        .order_by("activo__codigo", "-anio", "-semana")
+    )
+    datos = []
+    vistos = set()
+    for l in lecturas:
+        if l.activo_id in vistos:
+            continue
+        prev = (
+            LecturaHorometro.objects.filter(activo=l.activo)
+            .exclude(pk=l.pk)
+            .order_by("-anio", "-semana")
+            .first()
+        )
+        diff = l.lectura - prev.lectura if prev else None
+        alerta = (
+            AlertaMantenimiento.objects.filter(
+                activo=l.activo, estado__in=["NUEVA", "EN_PROCESO"]
+            )
+            .order_by("-anio", "-semana")
+            .first()
+        )
+        datos.append(
+            {
+                "activo": l.activo,
+                "lectura": l.lectura,
+                "diferencia": diff,
+                "alerta": alerta,
+            }
+        )
+        vistos.add(l.activo_id)
+
+    chart_labels = [d["activo"].codigo for d in datos]
+    chart_values = [float(d["lectura"]) for d in datos]
+
+    return render(
+        request,
+        "horometro/dashboard.html",
+        {
+            "items": datos,
+            "chart_labels": chart_labels,
+            "chart_values": chart_values,
+            "section": "horometro",
+        },
+    )
 
 
 # -------- Historial de un activo (tabla + gráfica) --------
@@ -101,26 +152,61 @@ def historial_activo(request, codigo):
     URL: /horometro/activo/<codigo>/
     """
     activo = get_object_or_404(Activo, codigo__iexact=codigo)
-    lecturas_qs = (
-        LecturaHorometro.objects
-        .filter(activo=activo)
-        .order_by("anio", "semana")
-    )
+    inicio = (request.GET.get("inicio") or "").strip()
+    fin = (request.GET.get("fin") or "").strip()
+    comparar = (request.GET.get("comparar") or "").strip()
 
-    # Datos para la gráfica (Chart.js)
-    chart_labels = [f"{l.anio}-W{l.semana:02d}" for l in lecturas_qs]
-    chart_values = [float(l.lectura) for l in lecturas_qs]
+    qs = LecturaHorometro.objects.filter(activo=activo)
 
-    return render(
-        request,
-        "horometro/historial_activo.html",
-        {
-            "activo": activo,
-            "lecturas": lecturas_qs,
-            "chart_labels": chart_labels,
-            "chart_values": chart_values,
-        },
-    )
+    def aplicar_rango(qs):
+        if inicio:
+            try:
+                y, w = inicio.split("-W")
+                qs = qs.filter(Q(anio__gt=int(y)) | (Q(anio=int(y)) & Q(semana__gte=int(w))))
+            except Exception:
+                pass
+        if fin:
+            try:
+                y, w = fin.split("-W")
+                qs = qs.filter(Q(anio__lt=int(y)) | (Q(anio=int(y)) & Q(semana__lte=int(w))))
+            except Exception:
+                pass
+        return qs
+
+    lecturas_qs = aplicar_rango(qs).order_by("anio", "semana")
+    main_map = {f"{l.anio}-W{l.semana:02d}": float(l.lectura) for l in lecturas_qs}
+    chart_labels = list(main_map.keys())
+    chart_values = list(main_map.values())
+
+    compare_activo = None
+    compare_values = None
+    if comparar:
+        compare_activo = Activo.objects.filter(codigo__iexact=comparar).first()
+        if compare_activo:
+            comp_qs = aplicar_rango(
+                LecturaHorometro.objects.filter(activo=compare_activo).order_by("anio", "semana")
+            )
+            comp_map = {f"{l.anio}-W{l.semana:02d}": float(l.lectura) for l in comp_qs}
+            labels = sorted(set(chart_labels) | set(comp_map.keys()))
+            chart_labels = labels
+            chart_values = [main_map.get(lbl) for lbl in labels]
+            compare_values = [comp_map.get(lbl) for lbl in labels]
+
+    context = {
+        "activo": activo,
+        "lecturas": lecturas_qs,
+        "chart_labels": chart_labels,
+        "chart_values": chart_values,
+        "inicio": inicio,
+        "fin": fin,
+        "comparar": comparar,
+        "section": "horometro",
+    }
+    if compare_activo and compare_values is not None:
+        context.update({"compare_activo": compare_activo, "compare_values": compare_values})
+
+    return render(request, "horometro/historial_activo.html", context)
+
 
 
 # -------- Alertas: listado y cambio de estado --------
@@ -153,6 +239,7 @@ def lista_alertas(request):
             "alertas": alertas,
             "estado": estado,
             "q": q,
+            "section": "horometro",
         },
     )
 

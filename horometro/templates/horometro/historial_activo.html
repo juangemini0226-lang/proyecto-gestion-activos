@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% load static %}
-{% load json_script %}
-
-{% extends "base.html" %}
-
 {% block content %}
   <h1>Horómetro — {{ activo.codigo }} · {{ activo.nombre }}</h1>
+
+  <form method="get" class="filters">
+    <label>Inicio: <input type="text" name="inicio" placeholder="YYYY-Www" value="{{ inicio }}"></label>
+    <label>Fin: <input type="text" name="fin" placeholder="YYYY-Www" value="{{ fin }}"></label>
+    <label>Comparar con: <input type="text" name="comparar" value="{{ comparar }}" placeholder="Código activo"></label>
+    <button type="submit">Filtrar</button>
+  </form>
 
   <!-- Gráfica -->
   <section style="max-width: 960px; margin: 1rem 0;">
@@ -31,28 +34,46 @@
     </tbody>
   </table>
 
-  <!-- Datos seguros para JS -->
+<!-- Datos seguros para JS -->
   {{ chart_labels|json_script:"labels-data" }}
   {{ chart_values|json_script:"values-data" }}
+  {% if compare_values %}
+  {{ compare_values|json_script:"compare-data" }}
+  {% endif %}
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const labels = JSON.parse(document.getElementById("labels-data").textContent);
     const values = JSON.parse(document.getElementById("values-data").textContent);
+    const datasets = [{
+          label: '{{ activo.codigo }}',
+          data: values,
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+        }];
+
+    const compareEl = document.getElementById("compare-data");
+    const compareLabel = "{{ compare_activo.codigo|default:'' }}";
+    if (compareEl && compareLabel) {
+      const compare = JSON.parse(compareEl.textContent);
+      datasets.push({
+          label: compareLabel,
+          data: compare,
+          fill: false,
+          borderColor: 'red',
+          tension: 0.3,
+          pointRadius: 2,
+      });
+    }
 
     const ctx = document.getElementById('evolucionChart').getContext('2d');
     new Chart(ctx, {
       type: 'line',
       data: {
         labels,
-        datasets: [{
-          label: 'Lectura semanal',
-          data: values,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 2,
-        }]
+        datasets: datasets
       },
       options: {
         responsive: true,

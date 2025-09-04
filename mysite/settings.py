@@ -140,3 +140,6 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # Reglas para escalar novedades automáticamente
 NOVEDAD_FALLAS_CRITICAS = []
+# Configuración de Celery
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)

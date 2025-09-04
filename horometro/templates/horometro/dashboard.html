@@ -1,0 +1,42 @@
+{% extends "core/base.html" %}
+
+{% load static %}
+
+{% block content %}
+<h1>Dashboard Horómetro</h1>
+
+<section style="max-width: 960px; margin: 1rem 0;">
+  <canvas id="lecturaChart"></canvas>
+</section>
+
+<table>
+  <thead>
+    <tr><th>Activo</th><th>Lectura actual</th><th>Diferencia</th><th>Alerta</th></tr>
+  </thead>
+  <tbody>
+    {% for it in items %}
+    <tr>
+      <td>{{ it.activo.codigo }}</td>
+      <td>{{ it.lectura }}</td>
+      <td>{% if it.diferencia is not None %}{{ it.diferencia }}{% else %}-{% endif %}</td>
+      <td>{% if it.alerta %}{{ it.alerta.estado }}{% else %}-{% endif %}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4">Sin datos.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{{ chart_labels|json_script:"labels-data" }}
+{{ chart_values|json_script:"values-data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const labels = JSON.parse(document.getElementById('labels-data').textContent);
+const values = JSON.parse(document.getElementById('values-data').textContent);
+new Chart(document.getElementById('lecturaChart'), {
+  type: 'bar',
+  data: {labels: labels, datasets: [{label: 'Lectura actual', data: values, backgroundColor: 'rgba(54,162,235,0.5)'}]},
+});
+</script>
+{% endblock %}

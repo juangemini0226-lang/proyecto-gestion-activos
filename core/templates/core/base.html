@@ -65,6 +65,11 @@
         </a>
       </li>
       <li>
+        <a href="{% url 'horometro_dashboard' %}" class="nav-link {% if section == 'horometro' %}active{% endif %}">
+          <i class="bi bi-clock-history"></i> Horómetro
+        </a>
+      </li>
+      <li>
         <a href="{% url 'activos:activos_list' %}" class="nav-link {% if section == 'activos' %}active{% endif %}">
           <i class="bi bi-box"></i> Activos
         </a>
