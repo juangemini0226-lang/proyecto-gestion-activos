@@ -3,7 +3,7 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django import forms
-
+import json
 from django.db.models import Count
 from activos.models import RegistroMantenimiento, Activo, Novedad
 from horometro.models import LecturaHorometro, AlertaMantenimiento
