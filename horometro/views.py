@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from activos.models import Activo
 from .models import LecturaHorometro, AlertaMantenimiento
 from .services import importer
-
+from .services.alerts import THRESHOLD
 
 # -------- Helpers de permisos --------
 def es_supervisor(u):
@@ -132,6 +132,18 @@ def dashboard(request):
     chart_labels = [d["activo"].codigo for d in datos]
     chart_values = [float(d["lectura"]) for d in datos]
 
+  # Colores según alerta o cercanía al umbral
+    chart_colors = []
+    threshold = float(THRESHOLD)
+    for d in datos:
+        diff = float(d["diferencia"]) if d["diferencia"] is not None else None
+        if d["alerta"]:
+            chart_colors.append("rgba(220,53,69,0.5)")  # rojo: alerta abierta
+        elif diff is not None and diff >= 0.9 * threshold:
+            chart_colors.append("rgba(255,193,7,0.5)")  # amarillo: cercano al umbral
+        else:
+            chart_colors.append("rgba(54,162,235,0.5)")  # azul: normal
+
     return render(
         request,
         "horometro/dashboard.html",
@@ -139,6 +151,7 @@ def dashboard(request):
             "items": datos,
             "chart_labels": chart_labels,
             "chart_values": chart_values,
+            "chart_colors": chart_colors,
             "section": "horometro",
         },
     )
