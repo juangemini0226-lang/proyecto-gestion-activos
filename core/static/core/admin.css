@@ -59,6 +59,16 @@ a:visited {
 a:hover {
     color: #ff4d4d;
 }
+#container #breadcrumbs a,
+#container #breadcrumbs a:visited {
+    color: var(--accent-color);
+}
+
+#container #breadcrumbs a:hover {
+    color: #ff4d4d;
+}
+
+
 
 .button,
 input[type="submit"],
