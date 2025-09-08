@@ -33,30 +33,30 @@
   {% else %}
   <p>{% trans "You don't have permission to view or edit anything." %}</p>
   {% endif %}
-</div>
-{% endblock %}
-
-{% block sidebar %}
-<div class="recent-actions module">
-  <h2>{% trans 'Recent actions' %}</h2>
-  <h3>{% trans 'My actions' %}</h3>
-  {% get_admin_log 10 as admin_log for_user user %}
-  {% if not admin_log %}
-  <p>{% trans 'None available' %}</p>
-  {% else %}
-  <ul class="actionlist">
-    {% for entry in admin_log %}
-    <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %} changelink{% endif %}{% if entry.is_deletion %} deletelink{% endif %}">
-      {% if entry.is_deletion or not entry.get_admin_url %}
-        {{ entry.object_repr }}
-      {% else %}
-        <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
-      {% endif %}
-      <br>
-      <span class="mini quiet">{% filter capfirst %}{% trans entry.action_flag|action_name %}{% endfilter %}</span>
-    </li>
-    {% endfor %}
-  </ul>
+  <div class="recent-actions module">
+    <div class="recent-actions-header">
+      <h2>{% trans 'Recent actions' %}</h2>
+      <button type="button" class="hide-actions">&times;</button>
+    </div>
+    <h3>{% trans 'My actions' %}</h3>
+    {% get_admin_log 10 as admin_log for_user user %}
+    {% if not admin_log %}
+      <p>{% trans 'None available' %}</p>
+    {% else %}
+      <ul class="actionlist">
+      {% for entry in admin_log %}
+      <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %} changelink{% endif %}{% if entry.is_deletion %} deletelink{% endif %}">
+        {% if entry.is_deletion or not entry.get_admin_url %}
+          {{ entry.object_repr }}
+        {% else %}
+          <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+        {% endif %}
+        <br>
+        <span class="mini quiet">{{ entry.get_action_flag_display|capfirst }}</span>
+      </li>
+      {% endfor %}
+    </ul>
   {% endif %}
+  </div>
 </div>
 {% endblock %}

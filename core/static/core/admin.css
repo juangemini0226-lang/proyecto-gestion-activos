@@ -1,19 +1,27 @@
 /* Custom styles for Django admin */
 :root {
-    --primary-color: #003366;
-    --accent-color: #ffcc00;
+    --primary-color: #1E3A8A;
+    --accent-color: #F59E0B;
+    --bg-color: #F3F4F6;
+    --text-color: #111827;
+    --card-bg: #FFFFFF;
+    --card-border: #E5E7EB;
 }
 
 body {
-    background-color: #f0f4f8;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: "Segoe UI", Tahoma, sans-serif;
 }
 
 #header {
-    background-color: var(--primary-color);
+    background: linear-gradient(90deg, var(--primary-color), #3B82F6);
 }
 
 #header h1 a {
     color: #fff;
+    font-size: 24px;
+    font-weight: 600;
 }
 
 .module h2,
@@ -21,11 +29,18 @@ body {
 .inline-group h2 {
     background: var(--primary-color);
     color: #fff;
+    padding: 8px 10px;
+    border-radius: 4px 4px 0 0;
 }
 
 a:link,
 a:visited {
     color: var(--primary-color);
+    transition: color .2s;
+}
+
+a:hover {
+    color: #3B82F6;
 }
 
 .button,
@@ -35,43 +50,82 @@ input[type="button"],
     background: var(--accent-color);
     border-color: var(--accent-color);
     color: #000;
+    transition: background .2s;
+}
+
+.button:hover,
+input[type="submit"]:hover,
+input[type="button"]:hover,
+.submit-row input:hover {
+    background: #D97706;
 }
 
 /* Dashboard layout */
 .dashboard {
-    display: flex;
+    max-width: 1200px;
+    margin: 20px auto;
+    display: grid;
+    grid-template-columns: 1fr 320px;
     gap: 20px;
+    align-items: start;
 }
 
 .app-grid {
-    flex: 1;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 20px;
 }
 
 .app-card {
-    background: #fff;
-    border: 1px solid #d0d7de;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    overflow: hidden;
+    transition: box-shadow .2s, transform .2s;
+}
+
+.app-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
 }
 
 .app-header {
     background: var(--primary-color);
     color: #fff;
-    padding: 10px;
+    padding: 12px 15px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.app-header::after {
+    content: "\25BC";
+    transition: transform .2s;
+}
+
+.app-header.collapsed::after {
+    transform: rotate(-90deg);
 }
 
 .model-list {
     list-style: none;
     margin: 0;
-    padding: 10px;
+    padding: 10px 15px;
+    flex-grow: 1;
 }
 
 .model-list li {
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+}
+
+.model-list li .addlink {
+    float: right;
+    font-size: 0.85em;
+    color: var(--accent-color);
 }
 
 .model-list.collapsed {
@@ -79,5 +133,46 @@ input[type="button"],
 }
 
 .recent-actions {
-    width: 250px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 15px;
+}
+
+.recent-actions.hidden {
+    display: none;
+}
+
+.recent-actions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.hide-actions {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+.hide-actions:hover {
+    color: var(--accent-color);
+}
+
+.recent-actions h2 {
+    margin-top: 0;
+    font-size: 16px;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 8px;
+    background: none;
+    color: var(--text-color);
+}
+
+.recent-actions h3 {
+    font-size: 14px;
+    margin-top: 10px;
+    color: var(--text-color);
 }
