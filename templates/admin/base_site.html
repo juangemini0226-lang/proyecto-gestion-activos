@@ -1,10 +1,14 @@
 {% extends "admin/base.html" %}
 {% load i18n static %}
 
-{% block title %}Gestión de Activos - Admin{% endblock %}
+{% block title %}Industrias Estra - Admin{% endblock %}
 
 {% block branding %}
-<h1 id="site-name"><a href="{% url 'admin:index' %}">Gestión de Activos Admin</a></h1>
+<h1 id="site-name">
+  <a href="{% url 'admin:index' %}">
+    <img src="{% static 'core/logo_estra.png' %}" alt="Industrias Estra" class="logo">
+  </a>
+</h1>
 {% endblock %}
 
 {% block extrastyle %}

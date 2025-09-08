@@ -119,6 +119,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+# Directorio donde se recopilarán los archivos estáticos al ejecutar
+# `manage.py collectstatic`. Este ajuste es requerido para que el comando
+# funcione correctamente en entornos de producción.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
