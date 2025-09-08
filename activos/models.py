@@ -60,6 +60,16 @@ class Activo(models.Model):
             filename = f"qr_{self.pk}.png"
             self.qr_code.save(filename, File(buffer), save=False)
             super().save(update_fields=["qr_code"])
+# -------- Documentos por activo --------
+class DocumentoActivo(models.Model):
+    activo = models.ForeignKey(Activo, related_name="documentos", on_delete=models.CASCADE)
+    nombre = models.CharField(max_length=255, blank=True)
+    tipo = models.CharField(max_length=50, blank=True)
+    archivo = models.FileField(upload_to="activos/docs/%Y/%m/%d/")
+    subido = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre or self.archivo.name
 
 
 # -------- Catálogo de fallas --------

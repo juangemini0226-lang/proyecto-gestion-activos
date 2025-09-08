@@ -6,8 +6,16 @@
     --text-color: #000000;
     --card-bg: #FFFFFF;
     --card-border: #E5E7EB;
-}
 
+    /* Override default Django admin palette to remove blue accents */
+    --primary: var(--primary-color);
+    --secondary: var(--accent-color);
+    --accent: var(--accent-color);
+    --header-bg: var(--primary-color);
+    --link-fg: var(--accent-color);
+    --link-hover-color: #ff4d4d;
+    --link-selected-fg: var(--accent-color);
+}
 body {
     background-color: var(--bg-color);
     color: var(--text-color);

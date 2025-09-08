@@ -26,6 +26,7 @@ from .models import (
     PlantillaChecklist,
     PlantillaItem,
     EvidenciaDetalle,
+    DocumentoActivo,
 )
 from core.models import HistorialOT
 
@@ -36,6 +37,12 @@ from core.models import HistorialOT
 class ActivoResource(resources.ModelResource):
     class Meta:
         model = Activo
+
+class DocumentoActivoInline(admin.TabularInline):
+    model = DocumentoActivo
+    extra = 0
+    fields = ("nombre", "tipo", "archivo")
+
 
 
 @admin.register(Activo)
@@ -56,7 +63,14 @@ class ActivoAdmin(ImportExportModelAdmin):
     autocomplete_fields = ("familia", "categoria", "estado", "ubicacion")
     ordering = ("codigo",)
     list_per_page = 25
+    inlines = (DocumentoActivoInline,)
 
+
+@admin.register(DocumentoActivo)
+class DocumentoActivoAdmin(admin.ModelAdmin):
+    list_display = ("activo", "nombre", "tipo", "archivo", "subido")
+    list_filter = ("tipo",)
+    search_fields = ("nombre", "archivo")
 
 # ==========================
 #  Familias de activos

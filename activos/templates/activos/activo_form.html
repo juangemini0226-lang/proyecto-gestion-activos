@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load activos_extras %}
 {% block content %}
 <div class="container py-4">
   <h1 class="h5 mb-3">{% if activo %}Editar Activo{% else %}Nuevo Activo{% endif %}</h1>
@@ -9,6 +10,25 @@
       <button type="submit" class="btn btn-primary">Guardar</button>
       <a href="{% url 'activos:activos_list' %}" class="btn btn-secondary">Cancelar</a>
     </div>
-  </form>
+</form>
+
+  {% if activo and activo.documentos.all %}
+    <div class="card mt-4">
+      <div class="card-body">
+        <h2 class="h6">Documentos</h2>
+        <ul class="list-unstyled mb-0">
+          {% for doc in activo.documentos.all %}
+            <li class="mb-2">
+              {% if doc.archivo.url|is_pdf %}
+                <embed src="{{ doc.archivo.url }}" type="application/pdf" width="100%" height="400px" />
+              {% else %}
+                <a href="{{ doc.archivo.url }}" target="_blank">{{ doc.nombre|default:doc.archivo.name }}</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% endif %}
 </div>
 {% endblock %}
