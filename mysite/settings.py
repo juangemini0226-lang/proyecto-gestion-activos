@@ -147,3 +147,9 @@ NOVEDAD_FALLAS_CRITICAS = []
 # Configuración de Celery
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
+
+# Permitir que los documentos (por ejemplo, PDFs) se muestren dentro de
+# un <iframe> o <embed> cuando se consultan desde el mismo dominio.
+# Esto facilita que la información técnica del activo se despliegue
+# directamente al escanear el código QR.
+X_FRAME_OPTIONS = "SAMEORIGIN"

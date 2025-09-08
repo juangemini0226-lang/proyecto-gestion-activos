@@ -33,19 +33,25 @@
  {% if activo.documentos.all %}
         <hr/>
         <h2 class="h6">Documentos</h2>
-        <ul class="list-unstyled mb-0">
-          {% for doc in activo.documentos.all %}
-            <li class="mb-2">
-              {% if doc.archivo.url|is_pdf %}
-                <embed src="{% media_abs request doc.archivo.url %}" type="application/pdf" width="100%" height="400px" />
-              {% else %}
-                <a href="{% media_abs request doc.archivo.url %}" target="_blank">{{ doc.nombre|default:doc.archivo.name }}</a>
-              {% endif %}
-            </li>
-          {% empty %}
-            <li class="text-muted">No hay documentos.</li>
-          {% endfor %}
-        </ul>
+        <div class="d-flex align-items-center gap-2">
+          <select id="doc-select" class="form-select w-auto">
+            {% for doc in activo.documentos.all %}
+              <option value="{% media_abs request doc.archivo.url %}">{{ doc.nombre|default:doc.archivo.name }}</option>
+            {% empty %}
+              <option disabled>No hay documentos</option>
+            {% endfor %}
+          </select>
+          <a id="doc-open" class="btn btn-primary" target="_blank">Abrir</a>
+        </div>
+        <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            var select = document.getElementById('doc-select');
+            var link = document.getElementById('doc-open');
+            function update() { link.href = select.value; }
+            select.addEventListener('change', update);
+            update();
+          });
+        </script>
       {% endif %}
     </div>
   </div>
