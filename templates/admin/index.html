@@ -1,0 +1,62 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static log %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'core/admin.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  {% if app_list %}
+  <div class="app-grid">
+    {% for app in app_list %}
+    <div class="app-card">
+      <div class="app-header">{{ app.name }}</div>
+      <ul class="model-list">
+        {% for model in app.models %}
+        <li>
+          {% if model.admin_url %}
+            <a href="{{ model.admin_url }}">{{ model.name }}</a>
+          {% else %}
+            {{ model.name }}
+          {% endif %}
+          {% if model.add_url %}
+            <a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>{% trans "You don't have permission to view or edit anything." %}</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div class="recent-actions module">
+  <h2>{% trans 'Recent actions' %}</h2>
+  <h3>{% trans 'My actions' %}</h3>
+  {% get_admin_log 10 as admin_log for_user user %}
+  {% if not admin_log %}
+  <p>{% trans 'None available' %}</p>
+  {% else %}
+  <ul class="actionlist">
+    {% for entry in admin_log %}
+    <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %} changelink{% endif %}{% if entry.is_deletion %} deletelink{% endif %}">
+      {% if entry.is_deletion or not entry.get_admin_url %}
+        {{ entry.object_repr }}
+      {% else %}
+        <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+      {% endif %}
+      <br>
+      <span class="mini quiet">{{ entry.get_action_flag_display|capfirst }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

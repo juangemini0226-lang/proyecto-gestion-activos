@@ -1,0 +1,83 @@
+/* Custom styles for Django admin */
+:root {
+    --primary-color: #003366;
+    --accent-color: #ffcc00;
+}
+
+body {
+    background-color: #f0f4f8;
+}
+
+#header {
+    background-color: var(--primary-color);
+}
+
+#header h1 a {
+    color: #fff;
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+a:link,
+a:visited {
+    color: var(--primary-color);
+}
+
+.button,
+input[type="submit"],
+input[type="button"],
+.submit-row input {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #000;
+}
+
+/* Dashboard layout */
+.dashboard {
+    display: flex;
+    gap: 20px;
+}
+
+.app-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.app-card {
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.app-header {
+    background: var(--primary-color);
+    color: #fff;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.model-list {
+    list-style: none;
+    margin: 0;
+    padding: 10px;
+}
+
+.model-list li {
+    margin-bottom: 5px;
+}
+
+.model-list.collapsed {
+    display: none;
+}
+
+.recent-actions {
+    width: 250px;
+}
