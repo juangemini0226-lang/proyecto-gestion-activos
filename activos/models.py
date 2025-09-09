@@ -33,7 +33,54 @@ class EstadoActivo(models.Model):
 
     def __str__(self):
         return self.nombre
+# -------- Jerarquía ISO 14224 --------
+class Planta(models.Model):
+    nombre = models.CharField(max_length=120, unique=True)
 
+    def __str__(self):
+        return self.nombre
+
+
+class Sistema(models.Model):
+    nombre = models.CharField(max_length=120)
+    planta = models.ForeignKey(
+        "Planta", on_delete=models.CASCADE, related_name="sistemas"
+    )
+
+
+
+    def __str__(self):
+        return f"{self.planta} / {self.nombre}"
+
+
+class SubSistema(models.Model):
+    nombre = models.CharField(max_length=120)
+    sistema = models.ForeignKey(
+        "Sistema", on_delete=models.CASCADE, related_name="subsistemas"
+    )
+
+    def __str__(self):
+        return f"{self.sistema} / {self.nombre}"
+
+
+class ItemMantenible(models.Model):
+    nombre = models.CharField(max_length=120)
+    subsistema = models.ForeignKey(
+        "SubSistema", on_delete=models.CASCADE, related_name="items"
+    )
+
+    def __str__(self):
+        return f"{self.subsistema} / {self.nombre}"
+
+
+class Parte(models.Model):
+    nombre = models.CharField(max_length=120)
+    item = models.ForeignKey(
+        "ItemMantenible", on_delete=models.CASCADE, related_name="partes"
+    )
+
+    def __str__(self):
+        return f"{self.item} / {self.nombre}"
 
 # -------- Activo --------
 class Activo(models.Model):
@@ -46,6 +93,13 @@ class Activo(models.Model):
     estado = models.ForeignKey("EstadoActivo", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos")
     ubicacion = models.ForeignKey("Ubicacion", null=True, blank=True, on_delete=models.SET_NULL, related_name="activos")
     qr_code = models.ImageField(upload_to="qr_codes", blank=True, null=True)
+    componentes = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="es_parte_de",
+        verbose_name="Componentes",
+    )
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
@@ -60,7 +114,7 @@ class Activo(models.Model):
             filename = f"qr_{self.pk}.png"
             self.qr_code.save(filename, File(buffer), save=False)
             super().save(update_fields=["qr_code"])
-# -------- Documentos por activo --------
+            # -------- Documentos por activo --------
 class DocumentoActivo(models.Model):
     activo = models.ForeignKey(Activo, related_name="documentos", on_delete=models.CASCADE)
     nombre = models.CharField(max_length=255, blank=True)
@@ -106,7 +160,6 @@ class RecurrenciaOT(models.TextChoices):
     MDOW = "MDOW", "Mensualmente por día de la semana"
     YEAR = "YEAR", "Anual"
 
-
 # -------- Ubicación (jerárquica opcional) --------
 class Ubicacion(models.Model):
     nombre = models.CharField(max_length=120)
@@ -117,8 +170,14 @@ class Ubicacion(models.Model):
         verbose_name_plural = "Ubicaciones"
 
     def __str__(self):
-        return f"{self.padre} / {self.nombre}" if self.padre else self.nombre
-
+        names = [self.nombre]
+        parent = self.padre
+        visited = {self.pk}
+        while parent and parent.pk not in visited:
+            names.append(parent.nombre)
+            visited.add(parent.pk)
+            parent = parent.padre
+        return " / ".join(reversed(names))
 
 # -------- Registro de mantenimiento --------
 class RegistroMantenimiento(models.Model):

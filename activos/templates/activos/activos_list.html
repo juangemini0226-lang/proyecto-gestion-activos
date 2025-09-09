@@ -9,9 +9,15 @@
     <table class="table table-sm">
       <thead class="table-light">
         <tr>
-          <th>Código</th>
+         <th>Código</th>
           <th>Nombre</th>
           <th>Número</th>
+          <th>Planta</th>
+          <th>Sistema</th>
+          <th>Sub-sistema</th>
+          <th>Ítem</th>
+          <th>Parte</th>
+          <th>Tag</th>
           <th>Categoría</th>
           <th>Estado</th>
           <th>Ubicación</th>
@@ -24,6 +30,12 @@
           <td><a href="{% url 'activos:detalle_activo_por_codigo' activo.codigo %}">{{ activo.codigo }}</a></td>
           <td>{{ activo.nombre }}</td>
           <td>{{ activo.numero_activo }}</td>
+          <td>{{ activo.planta }}</td>
+          <td>{{ activo.sistema }}</td>
+          <td>{{ activo.subsistema }}</td>
+          <td>{{ activo.item_mantenible }}</td>
+          <td>{{ activo.parte }}</td>
+          <td>{{ activo.tag }}</td>
           <td>{{ activo.categoria }}</td>
           <td>{{ activo.estado }}</td>
           <td>{{ activo.ubicacion }}</td>
@@ -32,7 +44,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No hay activos.</td></tr>
+        <tr><td colspan="13" class="text-center text-muted py-4">No hay activos.</td></tr>
         {% endfor %}
       </tbody>
     </table>

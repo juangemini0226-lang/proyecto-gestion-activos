@@ -32,45 +32,7 @@ class ActivoForm(forms.ModelForm):
             "categoria",
             "estado",
             "ubicacion",
-        ]
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Utilidades
-class RegistroMantenimientoForm(forms.ModelForm):
-        from django import forms
-from django.db.models import Q
-from django.contrib.auth import get_user_model
-
-from .models import (
-    Activo,
-    TareaMantenimiento,
-    PlantillaChecklist,
-    RegistroMantenimiento,
-    EvidenciaDetalle,
-    CatalogoFalla,
-    EstadoOT,
-    Novedad,
-)
-
-User = get_user_model()
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Formularios de Activos
-# ──────────────────────────────────────────────────────────────────────────────
-
-
-class ActivoForm(forms.ModelForm):
-    class Meta:
-        model = Activo
-        fields = [
-            "codigo",
-            "numero_activo",
-            "nombre",
-            "peso",
-            "familia",
-            "categoria",
-            "estado",
-            "ubicacion",
+            "componentes",
         ]
 
 # ──────────────────────────────────────────────────────────────────────────────

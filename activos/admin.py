@@ -27,6 +27,11 @@ from .models import (
     PlantillaItem,
     EvidenciaDetalle,
     DocumentoActivo,
+    Planta,
+    Sistema,
+    SubSistema,
+    ItemMantenible,
+    Parte,
 )
 from core.models import HistorialOT
 
@@ -51,20 +56,35 @@ class ActivoAdmin(ImportExportModelAdmin):
     list_display = (
         "codigo",
         "numero_activo",
+        "tag",
         "nombre",
+        "planta",
+        "sistema",
+        "subsistema",
+        "item_mantenible",
+        "parte",
         "familia",
         "categoria",
         "estado",
         "ubicacion",
         "peso",
     )
-    search_fields = ("codigo", "numero_activo", "nombre")
-    list_filter = ("familia", "categoria", "estado")
-    autocomplete_fields = ("familia", "categoria", "estado", "ubicacion")
+    search_fields = ("codigo", "numero_activo", "tag", "nombre")
+    list_filter = ("familia", "categoria", "estado", "planta", "sistema")
+    autocomplete_fields = (
+        "familia",
+        "categoria",
+        "estado",
+        "ubicacion",
+        "planta",
+        "sistema",
+        "subsistema",
+        "item_mantenible",
+        "parte",
+    )
     ordering = ("codigo",)
     list_per_page = 25
     inlines = (DocumentoActivoInline,)
-
 
 @admin.register(DocumentoActivo)
 class DocumentoActivoAdmin(admin.ModelAdmin):
@@ -97,6 +117,43 @@ class CategoriaActivoAdmin(admin.ModelAdmin):
 class EstadoActivoAdmin(admin.ModelAdmin):
     list_display = ("nombre",)
     search_fields = ("nombre",)
+
+# ==========================
+# ==========================
+#  Jerarquía ISO 14224
+# ==========================
+@admin.register(Planta)
+class PlantaAdmin(admin.ModelAdmin):
+    list_display = ("nombre",)
+    search_fields = ("nombre",)
+
+
+@admin.register(Sistema)
+class SistemaAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "planta")
+    search_fields = ("nombre",)
+    autocomplete_fields = ("planta",)
+
+
+@admin.register(SubSistema)
+class SubSistemaAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "sistema")
+    search_fields = ("nombre",)
+    autocomplete_fields = ("sistema",)
+
+
+@admin.register(ItemMantenible)
+class ItemMantenibleAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "subsistema")
+    search_fields = ("nombre",)
+    autocomplete_fields = ("subsistema",)
+
+
+@admin.register(Parte)
+class ParteAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "item")
+    search_fields = ("nombre",)
+    autocomplete_fields = ("item",)
 
 
 # ==========================
