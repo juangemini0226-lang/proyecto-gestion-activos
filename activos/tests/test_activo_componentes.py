@@ -1,5 +1,12 @@
 from django.test import TestCase
-from activos.models import Activo, FamiliaActivo, CategoriaActivo, EstadoActivo
+from activos.models import (
+    Activo,
+    FamiliaActivo,
+    CategoriaActivo,
+    EstadoActivo,
+    Ubicacion,
+    TipoUbicacion,
+)
 
 
 class ActivoComponentesTest(TestCase):
@@ -17,6 +24,8 @@ class ActivoComponentesTest(TestCase):
             categoria=self.categoria,
             estado=self.estado,
         )
+        ubic1 = Ubicacion.objects.create(nombre="Sub1", tipo=TipoUbicacion.SUBUNIDAD)
+        ubic2 = Ubicacion.objects.create(nombre="Sub2", tipo=TipoUbicacion.SUBUNIDAD)
         sistema1 = Activo.objects.create(
             codigo="SIS-1",
             numero_activo="2",
@@ -24,6 +33,7 @@ class ActivoComponentesTest(TestCase):
             familia=self.familia,
             categoria=self.categoria,
             estado=self.estado,
+            ubicacion=ubic1,
         )
         sistema2 = Activo.objects.create(
             codigo="SIS-2",
@@ -32,6 +42,7 @@ class ActivoComponentesTest(TestCase):
             familia=self.familia,
             categoria=self.categoria,
             estado=self.estado,
+            ubicacion=ubic2,
         )
         molde.componentes.add(sistema1, sistema2)
         self.assertEqual(molde.componentes.count(), 2)

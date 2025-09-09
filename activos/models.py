@@ -3,6 +3,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
 from django.core.files import File
+from django.core.files.storage import FileSystemStorage
 from io import BytesIO
 import qrcode
 
@@ -33,54 +34,19 @@ class EstadoActivo(models.Model):
 
     def __str__(self):
         return self.nombre
-# -------- Jerarquía ISO 14224 --------
-class Planta(models.Model):
-    nombre = models.CharField(max_length=120, unique=True)
 
-    def __str__(self):
-        return self.nombre
-
-
-class Sistema(models.Model):
-    nombre = models.CharField(max_length=120)
-    planta = models.ForeignKey(
-        "Planta", on_delete=models.CASCADE, related_name="sistemas"
-    )
-
-
-
-    def __str__(self):
-        return f"{self.planta} / {self.nombre}"
-
-
-class SubSistema(models.Model):
-    nombre = models.CharField(max_length=120)
-    sistema = models.ForeignKey(
-        "Sistema", on_delete=models.CASCADE, related_name="subsistemas"
-    )
-
-    def __str__(self):
-        return f"{self.sistema} / {self.nombre}"
-
-
-class ItemMantenible(models.Model):
-    nombre = models.CharField(max_length=120)
-    subsistema = models.ForeignKey(
-        "SubSistema", on_delete=models.CASCADE, related_name="items"
-    )
-
-    def __str__(self):
-        return f"{self.subsistema} / {self.nombre}"
-
-
-class Parte(models.Model):
-    nombre = models.CharField(max_length=120)
-    item = models.ForeignKey(
-        "ItemMantenible", on_delete=models.CASCADE, related_name="partes"
-    )
-
-    def __str__(self):
-        return f"{self.item} / {self.nombre}"
+# -------- Tipos de ubicación --------
+class TipoUbicacion(models.TextChoices):
+    INDUSTRIA = "INDUSTRIA", "Industria"
+    EMPRESA = "EMPRESA", "Empresa"
+    PLANTA = "PLANTA", "Planta"
+    PROCESO = "PROCESO", "Proceso"
+    SECCION = "SECCION", "Sección / Sistema"
+    UNIDAD = "UNIDAD", "Unidad de equipo"
+    SUBUNIDAD = "SUBUNIDAD", "Subunidad / Subsistema"
+    ITEM = "ITEM", "Item mantenible"
+    PARTE = "PARTE", "Parte"
+    OTRO = "OTRO", "Otro"
 
 # -------- Activo --------
 class Activo(models.Model):
@@ -99,10 +65,69 @@ class Activo(models.Model):
         blank=True,
         related_name="es_parte_de",
         verbose_name="Componentes",
+        limit_choices_to={
+            "ubicacion__tipo__in": [
+                TipoUbicacion.SUBUNIDAD,
+                TipoUbicacion.ITEM,
+                TipoUbicacion.PARTE,
+            ]
+        },
     )
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"
+
+    def _ubicacion_por_tipo(self, tipo):
+        ubic = self.ubicacion
+        while ubic:
+            if ubic.tipo == tipo:
+                return ubic
+            ubic = ubic.padre
+        return None
+
+    @property
+    def industria(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.INDUSTRIA)
+
+    @property
+    def empresa(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.EMPRESA)
+
+    @property
+    def planta(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.PLANTA)
+
+    @property
+    def proceso(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.PROCESO)
+
+    @property
+    def seccion(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.SECCION)
+
+    @property
+    def sistema(self):
+        return self.seccion
+
+    @property
+    def unidad(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.UNIDAD)
+
+    @property
+    def subunidad(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.SUBUNIDAD)
+
+    @property
+    def subsistema(self):
+        return self.subunidad
+
+    @property
+    def item_mantenible(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.ITEM)
+
+    @property
+    def parte(self):
+        return self._ubicacion_por_tipo(TipoUbicacion.PARTE)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -111,7 +136,10 @@ class Activo(models.Model):
             img = qrcode.make(url)
             buffer = BytesIO()
             img.save(buffer, format="PNG")
+            buffer.seek(0)
             filename = f"qr_{self.pk}.png"
+            storage = FileSystemStorage(location=settings.MEDIA_ROOT)
+            self.qr_code.storage = storage
             self.qr_code.save(filename, File(buffer), save=False)
             super().save(update_fields=["qr_code"])
             # -------- Documentos por activo --------
@@ -164,6 +192,7 @@ class RecurrenciaOT(models.TextChoices):
 class Ubicacion(models.Model):
     nombre = models.CharField(max_length=120)
     padre = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="hijos")
+    tipo = models.CharField(max_length=20, choices=TipoUbicacion.choices, default=TipoUbicacion.OTRO)
 
     class Meta:
         verbose_name = "Ubicación"

@@ -27,11 +27,7 @@ from .models import (
     PlantillaItem,
     EvidenciaDetalle,
     DocumentoActivo,
-    Planta,
-    Sistema,
-    SubSistema,
-    ItemMantenible,
-    Parte,
+    TipoUbicacion,
 )
 from core.models import HistorialOT
 
@@ -57,6 +53,15 @@ class ActivoAdmin(ImportExportModelAdmin):
         "codigo",
         "numero_activo",
         "nombre",
+        "industria",
+        "empresa",
+        "planta",
+        "proceso",
+        "seccion",
+        "unidad",
+        "subunidad",
+        "item_mantenible",
+        "parte",
         "familia",
         "categoria",
         "estado",
@@ -65,15 +70,23 @@ class ActivoAdmin(ImportExportModelAdmin):
     )
     search_fields = ("codigo", "numero_activo", "nombre")
     list_filter = ("familia", "categoria", "estado")
-    autocomplete_fields = (
-        "familia",
-        "categoria",
-        "estado",
-        "ubicacion",
-    )
+    list_select_related = ("familia", "categoria", "estado", "ubicacion")
+    autocomplete_fields = ("familia", "categoria", "estado", "ubicacion")
+    filter_horizontal = ("componentes",)
     ordering = ("codigo",)
     list_per_page = 25
     inlines = (DocumentoActivoInline,)
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "componentes":
+            kwargs["queryset"] = Activo.objects.filter(
+                ubicacion__tipo__in=[
+                    TipoUbicacion.SUBUNIDAD,
+                    TipoUbicacion.ITEM,
+                    TipoUbicacion.PARTE,
+                ]
+            )
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 @admin.register(DocumentoActivo)
 class DocumentoActivoAdmin(admin.ModelAdmin):
@@ -111,46 +124,13 @@ class EstadoActivoAdmin(admin.ModelAdmin):
 # ==========================
 #  Jerarquía ISO 14224
 # ==========================
-@admin.register(Planta)
-class PlantaAdmin(admin.ModelAdmin):
-    list_display = ("nombre",)
-    search_fields = ("nombre",)
-
-
-@admin.register(Sistema)
-class SistemaAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "planta")
-    search_fields = ("nombre",)
-    autocomplete_fields = ("planta",)
-
-
-@admin.register(SubSistema)
-class SubSistemaAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "sistema")
-    search_fields = ("nombre",)
-    autocomplete_fields = ("sistema",)
-
-
-@admin.register(ItemMantenible)
-class ItemMantenibleAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "subsistema")
-    search_fields = ("nombre",)
-    autocomplete_fields = ("subsistema",)
-
-
-@admin.register(Parte)
-class ParteAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "item")
-    search_fields = ("nombre",)
-    autocomplete_fields = ("item",)
-
-
 # ==========================
 #  Ubicaciones
 # ==========================
 @admin.register(Ubicacion)
 class UbicacionAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "padre")
+    list_display = ("nombre", "tipo", "padre")
+    list_filter = ("tipo",)
     search_fields = ("nombre",)
 
 
