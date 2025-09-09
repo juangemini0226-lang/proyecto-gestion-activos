@@ -56,31 +56,20 @@ class ActivoAdmin(ImportExportModelAdmin):
     list_display = (
         "codigo",
         "numero_activo",
-        "tag",
         "nombre",
-        "planta",
-        "sistema",
-        "subsistema",
-        "item_mantenible",
-        "parte",
         "familia",
         "categoria",
         "estado",
         "ubicacion",
         "peso",
     )
-    search_fields = ("codigo", "numero_activo", "tag", "nombre")
-    list_filter = ("familia", "categoria", "estado", "planta", "sistema")
+    search_fields = ("codigo", "numero_activo", "nombre")
+    list_filter = ("familia", "categoria", "estado")
     autocomplete_fields = (
         "familia",
         "categoria",
         "estado",
         "ubicacion",
-        "planta",
-        "sistema",
-        "subsistema",
-        "item_mantenible",
-        "parte",
     )
     ordering = ("codigo",)
     list_per_page = 25
