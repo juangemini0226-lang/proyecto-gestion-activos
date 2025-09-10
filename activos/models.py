@@ -142,7 +142,44 @@ class Activo(models.Model):
             self.qr_code.storage = storage
             self.qr_code.save(filename, File(buffer), save=False)
             super().save(update_fields=["qr_code"])
-            # -------- Documentos por activo --------
+           # -------- Elementos de taxonomía (ISO 14224) --------
+class Subsistema(models.Model):
+    """Nivel de subsistema dentro de un activo."""
+    activo = models.ForeignKey(
+        "Activo", on_delete=models.CASCADE, related_name="subsistemas"
+    )
+    codigo = models.CharField(max_length=100, blank=True)
+    nombre = models.CharField(max_length=120)
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}" if self.codigo else self.nombre
+
+
+class ItemMantenible(models.Model):
+    """Elemento mantenible asociado a un subsistema."""
+    subsistema = models.ForeignKey(
+        Subsistema, on_delete=models.CASCADE, related_name="items"
+    )
+    codigo = models.CharField(max_length=100, blank=True)
+    nombre = models.CharField(max_length=120)
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}" if self.codigo else self.nombre
+
+
+class Parte(models.Model):
+    """Parte específica de un ítem mantenible."""
+    item = models.ForeignKey(
+        ItemMantenible, on_delete=models.CASCADE, related_name="partes"
+    )
+    codigo = models.CharField(max_length=100, blank=True)
+    nombre = models.CharField(max_length=120)
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}" if self.codigo else self.nombre
+
+
+# -------- Documentos por activo --------
 class DocumentoActivo(models.Model):
     activo = models.ForeignKey(Activo, related_name="documentos", on_delete=models.CASCADE)
     nombre = models.CharField(max_length=255, blank=True)

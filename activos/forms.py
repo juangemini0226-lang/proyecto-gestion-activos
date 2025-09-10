@@ -11,6 +11,9 @@ from .models import (
     CatalogoFalla,
     EstadoOT,
     Novedad,
+    Subsistema,
+    ItemMantenible,
+    Parte,
 )
 
 User = get_user_model()
@@ -34,6 +37,22 @@ class ActivoForm(forms.ModelForm):
             "ubicacion",
             "componentes",
         ]
+class SubsistemaForm(forms.ModelForm):
+    class Meta:
+        model = Subsistema
+        fields = ["activo", "codigo", "nombre"]
+
+
+class ItemMantenibleForm(forms.ModelForm):
+    class Meta:
+        model = ItemMantenible
+        fields = ["subsistema", "codigo", "nombre"]
+
+
+class ParteForm(forms.ModelForm):
+    class Meta:
+        model = Parte
+        fields = ["item", "codigo", "nombre"]
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Utilidades

@@ -9,6 +9,7 @@ urlpatterns = [
     path("", include("core.urls")),
     # Admin
     path("admin/", admin.site.urls),
+    path("_nested_admin/", include("nested_admin.urls")),
     # Autenticación (tu app 'accounts')
     path("accounts/", include(("accounts.urls", "accounts"), namespace="accounts")),
     # Otras apps
@@ -17,6 +18,7 @@ urlpatterns = [
     path("horometro/", include("horometro.urls")),
     path("activos/", include(("activos.urls", "activos"), namespace="activos")),
     path("reports/", include(("reports.urls", "reports"), namespace="reports")),
+    
 ]
 
 # Archivos de usuario (MEDIA) sólo en desarrollo

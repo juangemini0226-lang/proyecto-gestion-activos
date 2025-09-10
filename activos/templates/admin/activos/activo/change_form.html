@@ -1,0 +1,8 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block object-tools-items %}
+  {% if change and not is_popup %}
+    <li><a href="{% url 'admin:activos_activo_ficha' object_id %}" class="viewlink">{% trans 'Ficha técnica' %}</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

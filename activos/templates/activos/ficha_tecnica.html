@@ -1,0 +1,62 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block extrastyle %}
+<style>
+  .ficha-logos{display:flex;justify-content:flex-start;align-items:center;gap:40px;margin-bottom:10px;}
+  .ficha-logos img.logo-large{height:120px;}
+  .ficha-logos img.logo-small{height:60px;}
+  h1.ficha-title{text-align:center;font-size:22px;margin:10px 0;font-weight:bold;}
+  table.ficha-table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+  table.ficha-table th,table.ficha-table td{border:1.5px solid #000;padding:6px;text-align:left;}
+  table.ficha-table th{background:#f0f0f0;}
+  h2.taxonomy-title{font-size:18px;margin-top:20px;margin-bottom:8px;}
+  ul.taxonomy{list-style:disc;margin-left:20px;}
+  ul.taxonomy ul{list-style:circle;margin-left:20px;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="ficha-logos">
+  <img src="{% static 'core/logo_estra.png' %}" alt="Industrias Estra S.A." class="logo-large">
+  <img src="{% static 'core/logo_estra.png' %}" alt="Industrias Estra S.A." class="logo-small">
+</div>
+<h1 class="ficha-title">Ficha técnica del activo {{ original.codigo }}</h1>
+<table class="ficha-table">
+  <tr><th>Código</th><td>{{ original.codigo }}</td></tr>
+  <tr><th># Activo</th><td>{{ original.numero_activo }}</td></tr>
+  <tr><th>Nombre</th><td>{{ original.nombre }}</td></tr>
+  <tr><th>Familia</th><td>{{ original.familia }}</td></tr>
+  <tr><th>Categoría</th><td>{{ original.categoria }}</td></tr>
+  <tr><th>Estado</th><td>{{ original.estado }}</td></tr>
+  <tr><th>Peso</th><td>{{ original.peso }}</td></tr>
+  <tr><th>Ubicación</th><td>{{ original.ubicacion }}</td></tr>
+</table>
+<h2 class="taxonomy-title">Taxonomía</h2>
+{% if original.ubicacion %}
+<ul class="taxonomy">
+  {% for subsistema in original.ubicacion.hijos.all %}
+    <li>{{ subsistema.nombre }} ({{ subsistema.get_tipo_display }})
+      {% if subsistema.hijos.exists %}
+      <ul>
+        {% for item in subsistema.hijos.all %}
+          <li>{{ item.nombre }} ({{ item.get_tipo_display }})
+            {% if item.hijos.exists %}
+            <ul>
+              {% for parte in item.hijos.all %}
+                <li>{{ parte.nombre }} ({{ parte.get_tipo_display }})</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No hay taxonomía definida.</p>
+{% endif %}
+{% if not pdf %}
+<p><a href="{{ pdf_url }}" class="button">Descargar PDF</a> <a href="../" class="button">Volver</a></p>
+{% endif %}
+{% endblock %}

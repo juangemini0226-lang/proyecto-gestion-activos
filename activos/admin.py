@@ -1,10 +1,20 @@
 import datetime
+import os
 import pandas as pd
 
 from django.contrib import admin, messages
+import nested_admin
+from django import forms
+from django.forms.models import BaseInlineFormSet
 from django.shortcuts import render, redirect
+from django.template.loader import render_to_string
+from django.http import HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+from django.contrib.staticfiles import finders
+
+from xhtml2pdf import pisa
 
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
@@ -28,6 +38,9 @@ from .models import (
     EvidenciaDetalle,
     DocumentoActivo,
     TipoUbicacion,
+    Subsistema,
+    ItemMantenible,
+    Parte,
 )
 from core.models import HistorialOT
 
@@ -39,16 +52,138 @@ class ActivoResource(resources.ModelResource):
     class Meta:
         model = Activo
 
-class DocumentoActivoInline(admin.TabularInline):
+class DocumentoActivoInline(nested_admin.NestedTabularInline):
     model = DocumentoActivo
     extra = 0
     fields = ("nombre", "tipo", "archivo")
 
 
+class BaseUbicacionFormSet(BaseInlineFormSet):
+    tipo = None
+
+    def __init__(self, *args, **kwargs):
+        instance = kwargs.get("instance")
+        if isinstance(instance, Activo):
+            kwargs["instance"] = instance.ubicacion
+        super().__init__(*args, **kwargs)
+
+    def save_new(self, form, commit=True):
+        obj = super().save_new(form, commit=False)
+        obj.tipo = self.tipo
+        if commit:
+            obj.save()
+        return obj
+
+
+class DatalistTextInput(forms.TextInput):
+    def __init__(self, datalist_id="", options=None, attrs=None):
+        super().__init__(attrs)
+        self.datalist_id = datalist_id
+        self.options = options or []
+        self.attrs.setdefault("list", datalist_id)
+
+    def render(self, name, value, attrs=None, renderer=None):
+        input_html = super().render(name, value, attrs, renderer)
+        options_html = "".join(f"<option value=\"{o}\"></option>" for o in self.options)
+        datalist_html = f"<datalist id='{self.datalist_id}'>{options_html}</datalist>"
+        return mark_safe(input_html + datalist_html)
+
+
+class UbicacionInlineForm(forms.ModelForm):
+    class Meta:
+        model = Ubicacion
+        fields = ["nombre"]
+
+    def __init__(self, *args, tipo=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if tipo:
+            nombres = (
+                Ubicacion.objects.filter(tipo=tipo)
+                .values_list("nombre", flat=True)
+                .distinct()
+                .order_by("nombre")
+            )
+            datalist_id = f"nombres_{tipo.lower()}"
+            self.fields["nombre"].widget = DatalistTextInput(datalist_id, nombres)
+
+
+class ParteForm(UbicacionInlineForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, tipo=TipoUbicacion.PARTE, **kwargs)
+
+
+class ItemForm(UbicacionInlineForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, tipo=TipoUbicacion.ITEM, **kwargs)
+
+
+class SubsistemaForm(UbicacionInlineForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, tipo=TipoUbicacion.SUBUNIDAD, **kwargs)
+
+
+class ParteInline(nested_admin.NestedTabularInline):
+    model = Ubicacion
+    fk_name = "padre"
+    extra = 0
+    fields = ("nombre", "tipo_label")
+    readonly_fields = ("tipo_label",)
+    form = ParteForm
+    formset = type("ParteFormSet", (BaseUbicacionFormSet,), {"tipo": TipoUbicacion.PARTE})
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(tipo=TipoUbicacion.PARTE)
+
+    def tipo_label(self, obj=None):
+        return TipoUbicacion.PARTE.label
+    tipo_label.short_description = "Tipo"
+
+
+class ItemMantenibleInline(nested_admin.NestedStackedInline):
+    model = Ubicacion
+    fk_name = "padre"
+    extra = 0
+    fields = ("nombre", "tipo_label")
+    readonly_fields = ("tipo_label",)
+    inlines = [ParteInline]
+    form = ItemForm
+    formset = type("ItemFormSet", (BaseUbicacionFormSet,), {"tipo": TipoUbicacion.ITEM})
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(tipo=TipoUbicacion.ITEM)
+
+    def tipo_label(self, obj=None):
+        return TipoUbicacion.ITEM.label
+    tipo_label.short_description = "Tipo"
+
+
+class SubsistemaInline(nested_admin.NestedStackedInline):
+    model = Ubicacion
+    fk_name = "padre"
+    extra = 0
+    fields = ("nombre", "tipo_label")
+    readonly_fields = ("tipo_label",)
+    inlines = [ItemMantenibleInline]
+    form = SubsistemaForm
+    formset = type("SubsistemaFormSet", (BaseUbicacionFormSet,), {"tipo": TipoUbicacion.SUBUNIDAD})
+
+    def __init__(self, parent_model, admin_site):
+        super().__init__(Ubicacion, admin_site)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(tipo=TipoUbicacion.SUBUNIDAD)
+
+    def tipo_label(self, obj=None):
+        return TipoUbicacion.SUBUNIDAD.label
+    tipo_label.short_description = "Tipo"
+
+
+
 
 @admin.register(Activo)
-class ActivoAdmin(ImportExportModelAdmin):
+class ActivoAdmin(ImportExportModelAdmin, nested_admin.NestedModelAdmin):
     resource_class = ActivoResource
+    change_form_template = "admin/activos/activo/change_form.html"
     list_display = (
         "codigo",
         "numero_activo",
@@ -67,6 +202,7 @@ class ActivoAdmin(ImportExportModelAdmin):
         "estado",
         "ubicacion",
         "peso",
+        "ficha_link",
     )
     search_fields = ("codigo", "numero_activo", "nombre")
     list_filter = ("familia", "categoria", "estado")
@@ -75,8 +211,7 @@ class ActivoAdmin(ImportExportModelAdmin):
     filter_horizontal = ("componentes",)
     ordering = ("codigo",)
     list_per_page = 25
-    inlines = (DocumentoActivoInline,)
-
+    inlines = (DocumentoActivoInline, SubsistemaInline)
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         if db_field.name == "componentes":
             kwargs["queryset"] = Activo.objects.filter(
@@ -87,6 +222,65 @@ class ActivoAdmin(ImportExportModelAdmin):
                 ]
             )
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "<int:object_id>/ficha/",
+                self.admin_site.admin_view(self.ficha_view),
+                name="activos_activo_ficha",
+            ),
+            path(
+                "<int:object_id>/ficha/pdf/",
+                self.admin_site.admin_view(self.ficha_pdf_view),
+                name="activos_activo_ficha_pdf",
+            ),
+        ]
+        return custom + urls
+
+    def ficha_view(self, request, object_id, *args, **kwargs):
+        activo = self.get_object(request, object_id)
+        context = dict(
+            self.admin_site.each_context(request),
+            opts=self.model._meta,
+            original=activo,
+            pdf_url=reverse("admin:activos_activo_ficha_pdf", args=[activo.pk]),
+        )
+        return render(request, "activos/ficha_tecnica.html", context)
+
+    def _link_callback(self, uri, rel):
+        from django.conf import settings
+
+        if uri.startswith(settings.STATIC_URL):
+            path = finders.find(uri.replace(settings.STATIC_URL, ""))
+            if path:
+                return path
+        if uri.startswith(settings.MEDIA_URL):
+            return os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
+        return uri
+
+    def ficha_pdf_view(self, request, object_id, *args, **kwargs):
+        activo = self.get_object(request, object_id)
+        context = {
+            "original": activo,
+            "pdf": True,
+        }
+        html = render_to_string("activos/ficha_tecnica.html", context)
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="ficha_{activo.codigo}.pdf"'
+        pisa.CreatePDF(html, dest=response, link_callback=self._link_callback)
+        return response
+
+    def ficha_link(self, obj):
+        url = reverse("admin:activos_activo_ficha", args=[obj.pk])
+        return format_html('<a href="{}" class="button">Ficha</a>', url)
+    ficha_link.short_description = "Ficha"
+
+    def response_post_save_change(self, request, obj):
+        if "_continue" not in request.POST and "_addanother" not in request.POST:
+            return redirect(reverse("admin:activos_activo_ficha", args=[obj.pk]))
+        return super().response_post_save_change(request, obj)
 
 @admin.register(DocumentoActivo)
 class DocumentoActivoAdmin(admin.ModelAdmin):
@@ -132,6 +326,24 @@ class UbicacionAdmin(admin.ModelAdmin):
     list_display = ("nombre", "tipo", "padre")
     list_filter = ("tipo",)
     search_fields = ("nombre",)
+
+
+@admin.register(Subsistema)
+class SubsistemaAdmin(admin.ModelAdmin):
+    list_display = ("activo", "codigo", "nombre")
+    search_fields = ("codigo", "nombre", "activo__nombre")
+
+
+@admin.register(ItemMantenible)
+class ItemMantenibleAdmin(admin.ModelAdmin):
+    list_display = ("subsistema", "codigo", "nombre")
+    search_fields = ("codigo", "nombre", "subsistema__nombre")
+
+
+@admin.register(Parte)
+class ParteAdmin(admin.ModelAdmin):
+    list_display = ("item", "codigo", "nombre")
+    search_fields = ("codigo", "nombre", "item__nombre")
 
 
 # ==========================
