@@ -2,6 +2,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -16,6 +17,7 @@ from .forms import (
     RegistroMantenimientoForm,
     NovedadForm,
     CrearOTDesdeNovedadForm,
+    build_taxonomia_formsets,
 )
 from .models import (
     Activo,
@@ -199,30 +201,58 @@ def ordenes_list(request):
 @login_required
 @user_passes_test(es_supervisor)
 def activo_create(request):
-    """Crea un nuevo activo."""
-    form = ActivoForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "Activo creado correctamente.")
-        return redirect("activos:activos_list")
-    return render(request, "activos/activo_form.html", {"form": form, "section": "activos"})
+    """Crea un nuevo activo con su jerarquía de taxonomía."""
+
+    activo = Activo()
+    form = ActivoForm(request.POST or None, instance=activo)
+    sistema_formset = build_taxonomia_formsets(activo, data=request.POST or None)
+
+    if request.method == "POST":
+        form_valid = form.is_valid()
+        formsets_valid = _validate_taxonomia_formsets(sistema_formset)
+        if form_valid and formsets_valid:
+            with transaction.atomic():
+                activo = form.save()
+                sistema_formset.instance = activo
+                _save_taxonomia_formsets(sistema_formset)
+            messages.success(request, "Activo creado correctamente.")
+            return redirect("activos:activos_list")
+
+    context = {
+        "form": form,
+        "sistema_formset": sistema_formset,
+        "section": "activos",
+    }
+    return render(request, "activos/activo_form.html", context)
 
 
 @login_required
 @user_passes_test(es_supervisor)
 def activo_update(request, pk: int):
-    """Actualiza un activo existente."""
+    """Actualiza un activo existente y su jerarquía."""
+
     activo = get_object_or_404(Activo, pk=pk)
     form = ActivoForm(request.POST or None, instance=activo)
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "Activo actualizado correctamente.")
-        return redirect("activos:activos_list")
-    return render(
-        request,
-        "activos/activo_form.html",
-        {"form": form, "activo": activo, "section": "activos"},
-    )
+    sistema_formset = build_taxonomia_formsets(activo, data=request.POST or None)
+
+    if request.method == "POST":
+        form_valid = form.is_valid()
+        formsets_valid = _validate_taxonomia_formsets(sistema_formset)
+        if form_valid and formsets_valid:
+            with transaction.atomic():
+                activo = form.save()
+                sistema_formset.instance = activo
+                _save_taxonomia_formsets(sistema_formset)
+            messages.success(request, "Activo actualizado correctamente.")
+            return redirect("activos:activos_list")
+
+    context = {
+        "form": form,
+        "activo": activo,
+        "sistema_formset": sistema_formset,
+        "section": "activos",
+    }
+    return render(request, "activos/activo_form.html", context)
 
 
 @login_required
@@ -360,7 +390,9 @@ def cambiar_estado_ot(request, pk: int):
 def detalle_activo_por_codigo(request, codigo: str):
     """Detalle de un activo buscado por su código."""
     activo = get_object_or_404(
-        Activo,
+        Activo.objects.prefetch_related(
+            "sistemas__subsistemas__items__partes"
+        ),
         Q(codigo__iexact=codigo) | Q(numero_activo__iexact=codigo),
     )
     ots = (
@@ -384,6 +416,7 @@ def detalle_activo_por_codigo(request, codigo: str):
 
     ctx = {
         "activo": activo,
+        "sistemas": activo.sistemas.all(),
         "ots": ots,
         "novedades": novedades,
         "novedad_form": form,
@@ -435,3 +468,56 @@ def iniciar_mantenimiento(request, activo_id: int):
     get_object_or_404(Activo, pk=activo_id)
     url = f"{reverse('activos:agendar_mantenimiento')}?activo={activo_id}"
     return redirect(url)
+def _validate_taxonomia_formsets(sistema_formset):
+    """Valida recursivamente el árbol de formsets de taxonomía."""
+
+    is_valid = sistema_formset.is_valid()
+    for sistema_form in sistema_formset.forms:
+        nested = getattr(sistema_form, "nested", {})
+        subs_formset = nested.get("subsistemas")
+        if subs_formset is None:
+            continue
+        subs_formset.instance = sistema_form.instance
+        is_valid = subs_formset.is_valid() and is_valid
+        for subs_form in subs_formset.forms:
+            subs_nested = getattr(subs_form, "nested", {})
+            items_formset = subs_nested.get("items")
+            if items_formset is None:
+                continue
+            items_formset.instance = subs_form.instance
+            is_valid = items_formset.is_valid() and is_valid
+            for item_form in items_formset.forms:
+                item_nested = getattr(item_form, "nested", {})
+                partes_formset = item_nested.get("partes")
+                if partes_formset is None:
+                    continue
+                partes_formset.instance = item_form.instance
+                is_valid = partes_formset.is_valid() and is_valid
+    return is_valid
+
+
+def _save_taxonomia_formsets(sistema_formset):
+    """Guarda el árbol de formsets respetando las relaciones jerárquicas."""
+
+    sistema_formset.save()
+    for sistema_form in sistema_formset.forms:
+        nested = getattr(sistema_form, "nested", {})
+        subs_formset = nested.get("subsistemas")
+        if subs_formset is None:
+            continue
+        subs_formset.instance = sistema_form.instance
+        subs_formset.save()
+        for subs_form in subs_formset.forms:
+            subs_nested = getattr(subs_form, "nested", {})
+            items_formset = subs_nested.get("items")
+            if items_formset is None:
+                continue
+            items_formset.instance = subs_form.instance
+            items_formset.save()
+            for item_form in items_formset.forms:
+                item_nested = getattr(item_form, "nested", {})
+                partes_formset = item_nested.get("partes")
+                if partes_formset is None:
+                    continue
+                partes_formset.instance = item_form.instance
+                partes_formset.save()

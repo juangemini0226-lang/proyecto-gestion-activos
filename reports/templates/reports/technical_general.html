@@ -1,0 +1,12 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Fichas técnicas de activos</h1>
+<table class="module">
+  <tr><th>Código</th><th>Nombre</th></tr>
+  {% for a in activos %}
+  <tr><td>{{ a.codigo }}</td><td>{{ a.nombre }}</td></tr>
+  {% empty %}
+  <tr><td colspan="2">No hay activos.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,7 +1,7 @@
 from django import forms
 from django.db.models import Q
 from django.contrib.auth import get_user_model
-
+from django.forms import inlineformset_factory
 from .models import (
     Activo,
     TareaMantenimiento,
@@ -11,6 +11,7 @@ from .models import (
     CatalogoFalla,
     EstadoOT,
     Novedad,
+    Sistema,
     Subsistema,
     ItemMantenible,
     Parte,
@@ -37,22 +38,113 @@ class ActivoForm(forms.ModelForm):
             "ubicacion",
             "componentes",
         ]
+
+
+class SistemaForm(forms.ModelForm):
+    class Meta:
+        model = Sistema
+        fields = ["tag", "codigo", "nombre"]
+
+
 class SubsistemaForm(forms.ModelForm):
     class Meta:
         model = Subsistema
-        fields = ["activo", "codigo", "nombre"]
+        fields = ["tag", "codigo", "nombre"]
 
 
 class ItemMantenibleForm(forms.ModelForm):
     class Meta:
         model = ItemMantenible
-        fields = ["subsistema", "codigo", "nombre"]
+        fields = ["tag", "codigo", "nombre"]
 
 
 class ParteForm(forms.ModelForm):
     class Meta:
         model = Parte
-        fields = ["item", "codigo", "nombre"]
+        fields = ["tag", "codigo", "nombre"]
+
+
+SistemaFormSet = inlineformset_factory(
+    Activo,
+    Sistema,
+    form=SistemaForm,
+    fields=["tag", "codigo", "nombre"],
+    extra=1,
+    can_delete=True,
+)
+
+
+SubsistemaFormSet = inlineformset_factory(
+    Sistema,
+    Subsistema,
+    form=SubsistemaForm,
+    fields=["tag", "codigo", "nombre"],
+    extra=1,
+    can_delete=True,
+)
+
+
+ItemMantenibleFormSet = inlineformset_factory(
+    Subsistema,
+    ItemMantenible,
+    form=ItemMantenibleForm,
+    fields=["tag", "codigo", "nombre"],
+    extra=1,
+    can_delete=True,
+)
+
+
+ParteFormSet = inlineformset_factory(
+    ItemMantenible,
+    Parte,
+    form=ParteForm,
+    fields=["tag", "codigo", "nombre"],
+    extra=1,
+    can_delete=True,
+)
+
+
+def build_taxonomia_formsets(activo, data=None, files=None):
+    """Crea el árbol de formsets (Sistema → Subsistema → Item → Parte)."""
+
+    sistema_formset = SistemaFormSet(
+        data=data,
+        files=files,
+        instance=activo,
+        prefix="sistemas",
+    )
+
+    for sistema_form in sistema_formset.forms:
+        sistema_instance = sistema_form.instance
+        subsistema_formset = SubsistemaFormSet(
+            data=data,
+            files=files,
+            instance=sistema_instance,
+            prefix=f"{sistema_form.prefix}-subsistemas",
+        )
+        sistema_form.nested = {"subsistemas": subsistema_formset}
+
+        for subsistema_form in subsistema_formset.forms:
+            subsistema_instance = subsistema_form.instance
+            item_formset = ItemMantenibleFormSet(
+                data=data,
+                files=files,
+                instance=subsistema_instance,
+                prefix=f"{subsistema_form.prefix}-items",
+            )
+            subsistema_form.nested = {"items": item_formset}
+
+            for item_form in item_formset.forms:
+                item_instance = item_form.instance
+                parte_formset = ParteFormSet(
+                    data=data,
+                    files=files,
+                    instance=item_instance,
+                    prefix=f"{item_form.prefix}-partes",
+                )
+                item_form.nested = {"partes": parte_formset}
+
+    return sistema_formset
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Utilidades

@@ -98,7 +98,7 @@ if os.environ.get("USE_MYSQL"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ.get("MYSQL_DATABASE", "juan"),
+            "NAME": os.environ.get("MYSQL_DATABASE", "prueba"),
             "USER": os.environ.get("MYSQL_USER", "root"),
             "PASSWORD": os.environ.get("MYSQL_PASSWORD", "3214879083Juan"),
             "HOST": os.environ.get("MYSQL_HOST", "127.0.0.1"),

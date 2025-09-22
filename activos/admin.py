@@ -38,6 +38,7 @@ from .models import (
     EvidenciaDetalle,
     DocumentoActivo,
     TipoUbicacion,
+    Sistema,
     Subsistema,
     ItemMantenible,
     Parte,
@@ -328,22 +329,46 @@ class UbicacionAdmin(admin.ModelAdmin):
     search_fields = ("nombre",)
 
 
+@admin.register(Sistema)
+class SistemaAdmin(admin.ModelAdmin):
+    list_display = ("activo", "tag", "codigo", "nombre")
+    search_fields = ("tag", "codigo", "nombre", "activo__nombre", "activo__codigo")
+
+
 @admin.register(Subsistema)
 class SubsistemaAdmin(admin.ModelAdmin):
-    list_display = ("activo", "codigo", "nombre")
-    search_fields = ("codigo", "nombre", "activo__nombre")
+    list_display = ("sistema", "tag", "codigo", "nombre")
+    search_fields = (
+        "tag",
+        "codigo",
+        "nombre",
+        "sistema__nombre",
+        "sistema__tag",
+    )
 
 
 @admin.register(ItemMantenible)
 class ItemMantenibleAdmin(admin.ModelAdmin):
-    list_display = ("subsistema", "codigo", "nombre")
-    search_fields = ("codigo", "nombre", "subsistema__nombre")
+    list_display = ("subsistema", "tag", "codigo", "nombre")
+    search_fields = (
+        "tag",
+        "codigo",
+        "nombre",
+        "subsistema__nombre",
+        "subsistema__tag",
+    )
 
 
 @admin.register(Parte)
 class ParteAdmin(admin.ModelAdmin):
-    list_display = ("item", "codigo", "nombre")
-    search_fields = ("codigo", "nombre", "item__nombre")
+    list_display = ("item", "tag", "codigo", "nombre")
+    search_fields = (
+        "tag",
+        "codigo",
+        "nombre",
+        "item__nombre",
+        "item__tag",
+    )
 
 
 # ==========================

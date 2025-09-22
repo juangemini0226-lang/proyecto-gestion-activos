@@ -1,0 +1,12 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Historial de ciclos{% if asset %} del activo {{ asset.codigo }}{% endif %}</h1>
+<table class="module">
+  <tr><th>Año</th><th>Semana</th><th>Ciclos</th></tr>
+  {% for r in registros %}
+  <tr><td>{{ r.año }}</td><td>{{ r.semana }}</td><td>{{ r.ciclos }}</td></tr>
+  {% empty %}
+  <tr><td colspan="3">No hay información disponible.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

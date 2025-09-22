@@ -75,6 +75,11 @@
         </a>
       </li>
       <li>
+        <a href="{% url 'reports:asset_report' %}" class="nav-link {% if section == 'reports' %}active{% endif %}">
+          <i class="bi bi-file-earmark-text"></i> Reportes
+        </a>
+      </li>
+      <li>
         <a href="{% url 'accounts:users_list' %}" class="nav-link {% if section == 'usuarios' %}active{% endif %}">
           <i class="bi bi-people"></i> Usuarios
         </a>

@@ -40,7 +40,7 @@
       </div>
     </div>
   </div>
-<div class="col">
+  <div class="col">
     <div class="card h-100 shadow-sm">
       <div class="card-body">
         <h5 class="card-title"><i class="bi bi-bell"></i> Novedades</h5>
@@ -50,4 +50,15 @@
     </div>
   </div>
 </div>
+<div class="col">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-file-earmark-text"></i> Reportes</h5>
+        <p class="card-text">Generar reportes técnicos, de ciclos, fallos o trazabilidad.</p>
+        <a href="{% url 'reports:asset_report' %}" class="btn btn-primary">Generar Reporte</a>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
+

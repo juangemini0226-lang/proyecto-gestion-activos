@@ -5,12 +5,195 @@
   <h1 class="h5 mb-3">{% if activo %}Editar Activo{% else %}Nuevo Activo{% endif %}</h1>
   <form method="post" enctype="multipart/form-data" class="card p-3 shadow-sm">
     {% csrf_token %}
-    {{ form.as_p }}
+     {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+    <div class="row g-3">
+      {% for field in form.visible_fields %}
+        <div class="col-md-6">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}
+            <div class="invalid-feedback d-block">
+              {{ field.errors|striptags }}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <hr class="my-4" />
+    <h2 class="h6">Sistemas</h2>
+    {{ sistema_formset.management_form }}
+    {% if sistema_formset.non_form_errors %}
+      <div class="alert alert-danger">
+        {{ sistema_formset.non_form_errors }}
+      </div>
+    {% endif %}
+    <div class="d-flex flex-column gap-3">
+      {% for sistema_form in sistema_formset.forms %}
+        <div class="card border-0 border-start border-4 border-primary-subtle">
+          <div class="card-body">
+            {% for hidden in sistema_form.hidden_fields %}{{ hidden }}{% endfor %}
+            {% if sistema_form.non_field_errors %}
+              <div class="alert alert-danger">{{ sistema_form.non_field_errors }}</div>
+            {% endif %}
+            <div class="row g-3 align-items-end">
+              {% for field in sistema_form.visible_fields %}
+                {% if field.name == 'DELETE' %}
+                  <div class="col-md-2">
+                    <div class="form-check mt-4">
+                      {{ field }}
+                      <label class="form-check-label" for="{{ field.id_for_label }}">Eliminar</label>
+                    </div>
+                  </div>
+                {% else %}
+                  <div class="col-md-4">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                      <div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+
+            {% with subs_formset=sistema_form.nested.subsistemas %}
+              <div class="mt-4">
+                <h3 class="h6">Subsistemas</h3>
+                {{ subs_formset.management_form }}
+                {% if subs_formset.non_form_errors %}
+                  <div class="alert alert-danger">{{ subs_formset.non_form_errors }}</div>
+                {% endif %}
+                <div class="d-flex flex-column gap-3">
+                  {% for subs_form in subs_formset.forms %}
+                    <div class="card border-0 border-start border-warning-subtle">
+                      <div class="card-body">
+                        {% for hidden in subs_form.hidden_fields %}{{ hidden }}{% endfor %}
+                        {% if subs_form.non_field_errors %}
+                          <div class="alert alert-danger">{{ subs_form.non_field_errors }}</div>
+                        {% endif %}
+                        <div class="row g-3 align-items-end">
+                          {% for field in subs_form.visible_fields %}
+                            {% if field.name == 'DELETE' %}
+                              <div class="col-md-2">
+                                <div class="form-check mt-4">
+                                  {{ field }}
+                                  <label class="form-check-label" for="{{ field.id_for_label }}">Eliminar</label>
+                                </div>
+                              </div>
+                            {% else %}
+                              <div class="col-md-4">
+                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.errors %}
+                                  <div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>
+                                {% endif %}
+                              </div>
+                            {% endif %}
+                          {% endfor %}
+                        </div>
+
+                        {% with item_formset=subs_form.nested.items %}
+                          <div class="mt-4">
+                            <h4 class="h6">Ítems mantenibles</h4>
+                            {{ item_formset.management_form }}
+                            {% if item_formset.non_form_errors %}
+                              <div class="alert alert-danger">{{ item_formset.non_form_errors }}</div>
+                            {% endif %}
+                            <div class="d-flex flex-column gap-3">
+                              {% for item_form in item_formset.forms %}
+                                <div class="card border-0 border-start border-info-subtle">
+                                  <div class="card-body">
+                                    {% for hidden in item_form.hidden_fields %}{{ hidden }}{% endfor %}
+                                    {% if item_form.non_field_errors %}
+                                      <div class="alert alert-danger">{{ item_form.non_field_errors }}</div>
+                                    {% endif %}
+                                    <div class="row g-3 align-items-end">
+                                      {% for field in item_form.visible_fields %}
+                                        {% if field.name == 'DELETE' %}
+                                          <div class="col-md-2">
+                                            <div class="form-check mt-4">
+                                              {{ field }}
+                                              <label class="form-check-label" for="{{ field.id_for_label }}">Eliminar</label>
+                                            </div>
+                                          </div>
+                                        {% else %}
+                                          <div class="col-md-4">
+                                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% if field.errors %}
+                                              <div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>
+                                            {% endif %}
+                                          </div>
+                                        {% endif %}
+                                      {% endfor %}
+                                    </div>
+
+                                    {% with parte_formset=item_form.nested.partes %}
+                                      <div class="mt-4">
+                                        <h5 class="h6">Partes</h5>
+                                        {{ parte_formset.management_form }}
+                                        {% if parte_formset.non_form_errors %}
+                                          <div class="alert alert-danger">{{ parte_formset.non_form_errors }}</div>
+                                        {% endif %}
+                                        <div class="d-flex flex-column gap-3">
+                                          {% for parte_form in parte_formset.forms %}
+                                            <div class="card border-0 border-start border-secondary-subtle">
+                                              <div class="card-body">
+                                                {% for hidden in parte_form.hidden_fields %}{{ hidden }}{% endfor %}
+                                                {% if parte_form.non_field_errors %}
+                                                  <div class="alert alert-danger">{{ parte_form.non_field_errors }}</div>
+                                                {% endif %}
+                                                <div class="row g-3 align-items-end">
+                                                  {% for field in parte_form.visible_fields %}
+                                                    {% if field.name == 'DELETE' %}
+                                                      <div class="col-md-2">
+                                                        <div class="form-check mt-4">
+                                                          {{ field }}
+                                                          <label class="form-check-label" for="{{ field.id_for_label }}">Eliminar</label>
+                                                        </div>
+                                                      </div>
+                                                    {% else %}
+                                                      <div class="col-md-4">
+                                                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                                        {{ field }}
+                                                        {% if field.errors %}
+                                                          <div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>
+                                                        {% endif %}
+                                                      </div>
+                                                    {% endif %}
+                                                  {% endfor %}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          {% endfor %}
+                                        </div>
+                                      </div>
+                                    {% endwith %}
+                                  </div>
+                                </div>
+                              {% endfor %}
+                            </div>
+                          </div>
+                        {% endwith %}
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endwith %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
     <div class="mt-3">
       <button type="submit" class="btn btn-primary">Guardar</button>
       <a href="{% url 'activos:activos_list' %}" class="btn btn-secondary">Cancelar</a>
     </div>
-</form>
+  </form>
+
 
   {% if activo and activo.documentos.all %}
     <div class="card mt-4">

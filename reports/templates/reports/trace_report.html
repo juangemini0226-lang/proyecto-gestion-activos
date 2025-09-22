@@ -1,0 +1,12 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Trazabilidad{% if asset %} del activo {{ asset.codigo }}{% endif %}</h1>
+<table class="module">
+  <tr><th>OT</th><th>Estado</th><th>Fecha creación</th></tr>
+  {% for o in ordenes %}
+  <tr><td>{{ o.id }}</td><td>{{ o.get_estado_display }}</td><td>{{ o.fecha_creacion|date:"Y-m-d" }}</td></tr>
+  {% empty %}
+  <tr><td colspan="3">No hay registros.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Generar informe de activos</h1>
+<form method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <button type="submit" class="button">Descargar</button>
+</form>
+{% endblock %}
