@@ -1,4 +1,7 @@
 # activos/views.py
+import logging
+from zipfile import BadZipFile
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
@@ -14,6 +17,7 @@ from horometro.models import AlertaMantenimiento
 from .forms import (
     ActivoForm,
     AsignarOTForm,
+    ImportarTaxonomiaForm,
     RegistroMantenimientoForm,
     NovedadForm,
     CrearOTDesdeNovedadForm,
@@ -31,6 +35,18 @@ from .models import (
     Ubicacion,
     Novedad,
 )
+
+from .importers import TaxonomiaImporter
+
+try:
+    from openpyxl import load_workbook
+    from openpyxl.utils.exceptions import InvalidFileException
+except ImportError:  # pragma: no cover - se valida en tiempo de ejecución
+    load_workbook = None
+    InvalidFileException = Exception  # type: ignore[assignment]
+
+
+logger = logging.getLogger(__name__)
 
 
 def redirect_buscar_a_detalle(request, codigo: str):
@@ -53,8 +69,92 @@ def redirect_buscar_a_detalle(request, codigo: str):
 @login_required
 def activos_list(request):
     """Listado sencillo de activos."""
-    activos = Activo.objects.all()
-    context = {"activos": activos, "section": "activos"}
+    activos = Activo.objects.all().order_by("codigo")
+    import_form = ImportarTaxonomiaForm()
+
+    if request.method == "POST":
+        import_form = ImportarTaxonomiaForm(request.POST, request.FILES)
+        if import_form.is_valid():
+            if load_workbook is None:
+                messages.error(
+                    request,
+                    "Debe instalar la dependencia 'openpyxl' para importar la taxonomía.",
+                )
+                return redirect("activos:activos_list")
+
+            archivo = import_form.cleaned_data["archivo"]
+            try:
+                archivo.seek(0)  # Por si el almacenamiento no está en modo streaming
+            except (AttributeError, OSError):
+                pass
+
+            try:
+                workbook = load_workbook(filename=archivo, data_only=True)
+            except (InvalidFileException, BadZipFile) as exc:
+                messages.error(
+                    request,
+                    "El archivo seleccionado no es un Excel válido. "
+                    f"Detalle: {exc}",
+                )
+                return redirect("activos:activos_list")
+
+            importer = TaxonomiaImporter()
+            try:
+                resultado = importer.importar_desde_workbook(workbook)
+            except Exception as exc:  # pragma: no cover - errores inesperados
+                logger.exception("Error al importar la taxonomía desde la interfaz web")
+                messages.error(
+                    request,
+                    "Ocurrió un error inesperado durante la importación. "
+                    "Revise el archivo e intente nuevamente.",
+                )
+                return redirect("activos:activos_list")
+
+            for advertencia in resultado.advertencias:
+                messages.warning(request, advertencia)
+
+            resumen_legible = "; ".join(
+                f"{titulo}: {cantidad}" for titulo, cantidad in resultado.resumen
+            )
+            if resumen_legible:
+                messages.success(
+                    request,
+                    f"Importación finalizada. {resumen_legible}",
+                )
+            else:
+                messages.success(request, "Importación finalizada.")
+
+            return redirect("activos:activos_list")
+
+    seleccionado_id = request.GET.get("ver_taxonomia")
+    activo_seleccionado = None
+    taxonomia = []
+
+    if seleccionado_id:
+        activo_seleccionado = (
+            Activo.objects.prefetch_related("sistemas__subsistemas__items__partes")
+            .filter(pk=seleccionado_id)
+            .first()
+        )
+    else:
+        primer_activo = activos.first()
+        if primer_activo:
+            activo_seleccionado = (
+                Activo.objects.prefetch_related("sistemas__subsistemas__items__partes")
+                .filter(pk=primer_activo.pk)
+                .first()
+            )
+
+    if activo_seleccionado:
+        taxonomia = _build_taxonomia_hierarchy(activo_seleccionado)
+
+    context = {
+        "activos": activos,
+        "section": "activos",
+        "import_form": import_form,
+        "activo_taxonomia": activo_seleccionado,
+        "taxonomia_activo": taxonomia,
+    }
     return render(request, "activos/activos_list.html", context)
 
 
@@ -387,6 +487,21 @@ def cambiar_estado_ot(request, pk: int):
     return redirect(request.META.get("HTTP_REFERER") or "activos:ordenes_list")
 
 
+def _build_taxonomia_hierarchy(activo: Activo):
+    """Arma una estructura anidada de la jerarquía técnica del activo."""
+    jerarquia = []
+    for sistema in activo.sistemas.all():
+        subsistemas = []
+        for subsistema in sistema.subsistemas.all():
+            items = []
+            for item in subsistema.items.all():
+                partes = list(item.partes.all())
+                items.append({"obj": item, "partes": partes})
+            subsistemas.append({"obj": subsistema, "items": items})
+        jerarquia.append({"obj": sistema, "subsistemas": subsistemas})
+    return jerarquia
+
+
 def detalle_activo_por_codigo(request, codigo: str):
     """Detalle de un activo buscado por su código."""
     activo = get_object_or_404(
@@ -416,7 +531,7 @@ def detalle_activo_por_codigo(request, codigo: str):
 
     ctx = {
         "activo": activo,
-        "sistemas": activo.sistemas.all(),
+        "taxonomia": _build_taxonomia_hierarchy(activo),
         "ots": ots,
         "novedades": novedades,
         "novedad_form": form,

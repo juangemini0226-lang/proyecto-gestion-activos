@@ -1,0 +1,95 @@
+{% load humanize %}
+{% for sistema in taxonomia %}
+  <li class="mb-2">
+    <details class="tree-node" open>
+      <summary class="tree-summary">
+        <span class="tree-pill tree-pill-sistema"><i class="bi bi-diagram-3"></i> Sistema</span>
+        <span class="fw-semibold">{{ sistema.obj.tag }}</span>
+        {% if sistema.obj.codigo %}
+          <span class="text-body-secondary">({{ sistema.obj.codigo }})</span>
+        {% endif %}
+        {% if sistema.obj.nombre %}
+          <span class="text-muted">{{ sistema.obj.nombre }}</span>
+        {% endif %}
+        {% with sistema.subsistemas|length as count_subs %}
+          <span class="tree-badge">{{ count_subs }} subsistema{{ count_subs|pluralize }}</span>
+        {% endwith %}
+      </summary>
+      {% if sistema.subsistemas %}
+        <ul class="tree-children list-unstyled mb-0">
+          {% for subsistema in sistema.subsistemas %}
+            <li class="mb-2">
+              <details class="tree-node" {% if subsistema.items %}open{% endif %}>
+                <summary class="tree-summary">
+                  <span class="tree-pill tree-pill-subsistema"><i class="bi bi-diagram-3-center"></i> Subsistema</span>
+                  <span class="fw-semibold">{{ subsistema.obj.tag }}</span>
+                  {% if subsistema.obj.codigo %}
+                    <span class="text-body-secondary">({{ subsistema.obj.codigo }})</span>
+                  {% endif %}
+                  {% if subsistema.obj.nombre %}
+                    <span class="text-muted">{{ subsistema.obj.nombre }}</span>
+                  {% endif %}
+                  {% with subsistema.items|length as count_items %}
+                    <span class="tree-badge">{{ count_items }} item{{ count_items|pluralize }}</span>
+                  {% endwith %}
+                </summary>
+                {% if subsistema.items %}
+                  <ul class="tree-children list-unstyled mb-0">
+                    {% for item in subsistema.items %}
+                      <li class="mb-2">
+                        {% if item.partes %}
+                          <details class="tree-node" open>
+                            <summary class="tree-summary">
+                              <span class="tree-pill tree-pill-item"><i class="bi bi-gear-wide-connected"></i> Item</span>
+                              <span class="fw-semibold">{{ item.obj.tag }}</span>
+                              {% if item.obj.codigo %}
+                                <span class="text-body-secondary">({{ item.obj.codigo }})</span>
+                              {% endif %}
+                              {% if item.obj.nombre %}
+                                <span class="text-muted">{{ item.obj.nombre }}</span>
+                              {% endif %}
+                              {% with item.partes|length as count_partes %}
+                                <span class="tree-badge">{{ count_partes }} parte{{ count_partes|pluralize }}</span>
+                              {% endwith %}
+                            </summary>
+                            <ul class="tree-children list-unstyled mb-0">
+                              {% for parte in item.partes %}
+                                <li class="tree-leaf">
+                                  <span class="tree-pill tree-pill-parte"><i class="bi bi-puzzle"></i> Parte</span>
+                                  <span class="ms-2 fw-semibold">{{ parte.tag }}</span>
+                                  {% if parte.codigo %}
+                                    <span class="text-body-secondary">({{ parte.codigo }})</span>
+                                  {% endif %}
+                                  {% if parte.nombre %}
+                                    <span class="ms-2 text-muted">{{ parte.nombre }}</span>
+                                  {% endif %}
+                                </li>
+                              {% endfor %}
+                            </ul>
+                          </details>
+                        {% else %}
+                          <div class="tree-leaf">
+                            <span class="tree-pill tree-pill-item"><i class="bi bi-gear-wide-connected"></i> Item</span>
+                            <span class="ms-2 fw-semibold">{{ item.obj.tag }}</span>
+                            {% if item.obj.codigo %}
+                              <span class="text-body-secondary">({{ item.obj.codigo }})</span>
+                            {% endif %}
+                            {% if item.obj.nombre %}
+                              <span class="ms-2 text-muted">{{ item.obj.nombre }}</span>
+                            {% endif %}
+                          </div>
+                        {% endif %}
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+              </details>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </details>
+  </li>
+{% empty %}
+  <li class="tree-leaf text-muted">No hay sistemas registrados.</li>
+{% endfor %}

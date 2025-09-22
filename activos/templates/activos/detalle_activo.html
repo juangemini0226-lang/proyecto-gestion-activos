@@ -1,5 +1,92 @@
 {% extends "core/base.html" %}
 {% load activos_extras %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <style>
+    .tree-view,
+    .tree-view ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .tree-view > li > .tree-label {
+      font-weight: 600;
+    }
+
+    .tree-children {
+      margin-left: 1.5rem;
+      padding-left: 1rem;
+      border-left: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.1));
+    }
+
+    .tree-node {
+      margin-bottom: 0.5rem;
+    }
+
+    .tree-leaf {
+      margin: 0.35rem 0;
+      padding-left: 0.35rem;
+    }
+
+    .tree-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      border-radius: 999px;
+      background-color: rgba(13, 110, 253, 0.12);
+      color: #0d6efd;
+      letter-spacing: 0.05em;
+    }
+
+    .tree-pill-activo {
+      background-color: rgba(13, 110, 253, 0.18);
+      color: #0a58ca;
+    }
+
+    .tree-pill-sistema {
+      background-color: rgba(255, 193, 7, 0.16);
+      color: #b78103;
+    }
+
+    .tree-pill-subsistema {
+      background-color: rgba(40, 167, 69, 0.16);
+      color: #1e7e34;
+    }
+
+    .tree-pill-item {
+      background-color: rgba(111, 66, 193, 0.16);
+      color: #5a189a;
+    }
+
+    .tree-pill-parte {
+      background-color: rgba(220, 53, 69, 0.16);
+      color: #b21f2d;
+    }
+
+    .tree-summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .tree-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .tree-badge {
+      font-size: 0.7rem;
+      color: var(--bs-secondary-color, #6c757d);
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
 
@@ -69,6 +156,59 @@
       <i class="bi bi-qr-code-scan me-1"></i> Escanear otro activo
     </a>
   </div>
+  {% if sistemas %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h2 class="h6 mb-3">Estructura del activo</h2>
+      <ul class="taxonomy-tree list-unstyled mb-0">
+        {% for sistema in sistemas %}
+        <li class="mb-2">
+          <div class="taxonomy-node">
+            <span class="taxonomy-tag">{{ sistema.tag }}</span>
+            {% if sistema.nombre %}<span class="taxonomy-name">{{ sistema.nombre }}</span>{% endif %}
+          </div>
+          {% if sistema.subsistemas.all %}
+          <ul class="taxonomy-branch list-unstyled mt-2 mb-0">
+            {% for subsistema in sistema.subsistemas.all %}
+            <li class="mb-1">
+              <div class="taxonomy-node">
+                <span class="taxonomy-tag">{{ subsistema.tag }}</span>
+                {% if subsistema.nombre %}<span class="taxonomy-name">{{ subsistema.nombre }}</span>{% endif %}
+              </div>
+              {% if subsistema.items.all %}
+              <ul class="taxonomy-branch list-unstyled mt-2 mb-0">
+                {% for item in subsistema.items.all %}
+                <li class="mb-1">
+                  <div class="taxonomy-node">
+                    <span class="taxonomy-tag">{{ item.tag }}</span>
+                    {% if item.nombre %}<span class="taxonomy-name">{{ item.nombre }}</span>{% endif %}
+                  </div>
+                  {% if item.partes.all %}
+                  <ul class="taxonomy-branch list-unstyled mt-2 mb-0">
+                    {% for parte in item.partes.all %}
+                    <li>
+                      <div class="taxonomy-node">
+                        <span class="taxonomy-tag">{{ parte.tag }}</span>
+                        {% if parte.nombre %}<span class="taxonomy-name">{{ parte.nombre }}</span>{% endif %}
+                      </div>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
 {% if novedades %}
   <div class="mb-4">
     {% for novedad in novedades %}
@@ -91,6 +231,29 @@
     {% endfor %}
   </div>
   {% endif %}
+<!-- Jerarquía técnica -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h2 class="h6 mb-3">Jerarquía del activo</h2>
+      {% if taxonomia %}
+        <ul class="tree-view list-unstyled mb-0">
+          <li>
+            <div class="tree-label mb-2">
+              <span class="tree-pill tree-pill-activo"><i class="bi bi-hdd-stack"></i> Activo</span>
+              <span class="ms-2 fw-semibold">{{ activo.codigo }}</span>
+              <span class="ms-2 text-muted">{{ activo.nombre }}</span>
+              <span class="ms-2 tree-badge">{{ taxonomia|length }} sistema{{ taxonomia|length|pluralize }}</span>
+            </div>
+            <ul class="tree-children list-unstyled mb-0">
+              {% include "activos/partials/jerarquia_activo.html" with taxonomia=taxonomia %}
+            </ul>
+          </li>
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">Este activo aún no tiene sistemas cargados.</p>
+      {% endif %}
+    </div>
+  </div>
 
   <!-- Reportar novedad -->
   <div class="card shadow-sm mb-4">

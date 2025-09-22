@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'lector_qr',  # Aplicación inicial dedicada a la lectura de codigo QR
     #'activos', # Aplicación que permite cargar archivos desde hojas de excel a la base de datos del framework
     'import_export', # Importa la hoja de datos de excel y la exporta a la base de datos
@@ -92,28 +93,15 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # test suite self‑contained we allow falling back to SQLite when the
 # ``USE_MYSQL`` environment variable is not explicitly set.  This keeps
 # the MySQL configuration for production while enabling an in-memory
-# database for tests.
-
-if os.environ.get("USE_MYSQL"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ.get("MYSQL_DATABASE", "prueba"),
-            "USER": os.environ.get("MYSQL_USER", "root"),
-            "PASSWORD": os.environ.get("MYSQL_PASSWORD", "3214879083Juan"),
-            "HOST": os.environ.get("MYSQL_HOST", "127.0.0.1"),
-            "PORT": os.environ.get("MYSQL_PORT", "3306"),
-        }
+# Utilizamos exclusivamente SQLite como motor de base de datos para el
+# proyecto. Esto simplifica la configuración y evita dependencias
+# adicionales en entornos donde un servidor MySQL no está disponible.
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
-
-
+}
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',

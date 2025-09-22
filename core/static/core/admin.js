@@ -1,15 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.app-card .app-header').forEach((header) => {
+  document.querySelectorAll('.app-card').forEach((card) => {
+    const header = card.querySelector('.app-header');
+    const content = card.querySelector('.app-content');
+    if (!header || !content) {
+      return;
+    }
+
     header.addEventListener('click', () => {
-      header.classList.toggle('collapsed');
-      header.nextElementSibling.classList.toggle('collapsed');
+      const isExpanded = header.getAttribute('aria-expanded') !== 'false';
+      header.classList.toggle('collapsed', isExpanded);
+      header.setAttribute('aria-expanded', String(!isExpanded));
+      content.classList.toggle('collapsed', isExpanded);
     });
   });
-
-  const hideBtn = document.querySelector('.hide-actions');
-  if (hideBtn) {
-    hideBtn.addEventListener('click', () => {
-      document.querySelector('.recent-actions').classList.add('hidden');
-    });
-  }
 });

@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static log %}
+{% load i18n static admin_menu %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -11,52 +11,49 @@
   {% if app_list %}
   <div class="app-grid">
     {% for app in app_list %}
-    <div class="app-card">
-      <div class="app-header">{{ app.name }}</div>
-      <ul class="model-list">
-        {% for model in app.models %}
-        <li>
-          {% if model.admin_url %}
-            <a href="{{ model.admin_url }}">{{ model.name }}</a>
-          {% else %}
-            {{ model.name }}
+    {% with app|organise_admin_app as organised %}
+    <section class="app-card">
+      <header class="app-header" role="button" aria-expanded="true">
+        <span class="app-name">{{ organised.name }}</span>
+        <span class="app-meta">
+          {% blocktrans count counter=organised.sections|length %}
+            {{ counter }} bloque
+          {% plural %}
+            {{ counter }} bloques
+          {% endblocktrans %}
+        </span>
+      </header>
+      <div class="app-content">
+        {% for section in organised.sections %}
+        <div class="model-section">
+          {% if section.show_title %}
+          <h3 class="section-title">{{ section.title }}</h3>
           {% endif %}
-          {% if model.add_url %}
-            <a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a>
-          {% endif %}
-        </li>
+          <ul class="model-list">
+            {% for model in section.models %}
+            <li>
+              {% if model.admin_url %}
+                <a href="{{ model.admin_url }}">{{ model.name }}</a>
+              {% else %}
+                {{ model.name }}
+              {% endif %}
+              {% if model.add_url %}
+                <a href="{{ model.add_url }}" class="addlink" aria-label="{% blocktrans with name=model.name %}Add {{ name }}{% endblocktrans %}">
+                  <span aria-hidden="true">+</span>
+                </a>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
         {% endfor %}
-      </ul>
-    </div>
+      </div>
+    </section>
+    {% endwith %}
     {% endfor %}
   </div>
   {% else %}
   <p>{% trans "You don't have permission to view or edit anything." %}</p>
   {% endif %}
-  <div class="recent-actions module">
-    <div class="recent-actions-header">
-      <h2>{% trans 'Recent actions' %}</h2>
-      <button type="button" class="hide-actions">&times;</button>
-    </div>
-    <h3>{% trans 'My actions' %}</h3>
-    {% get_admin_log 10 as admin_log for_user user %}
-    {% if not admin_log %}
-      <p>{% trans 'None available' %}</p>
-    {% else %}
-      <ul class="actionlist">
-      {% for entry in admin_log %}
-      <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %} changelink{% endif %}{% if entry.is_deletion %} deletelink{% endif %}">
-        {% if entry.is_deletion or not entry.get_admin_url %}
-          {{ entry.object_repr }}
-        {% else %}
-          <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
-        {% endif %}
-        <br>
-        <span class="mini quiet">{{ entry.get_action_flag_display|capfirst }}</span>
-      </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-  </div>
 </div>
 {% endblock %}

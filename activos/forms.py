@@ -24,6 +24,17 @@ User = get_user_model()
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+class ImportarTaxonomiaForm(forms.Form):
+    archivo = forms.FileField(
+        label="Plantilla Excel",
+        help_text="Archivo .xlsx con las pestañas Activos, Sistemas, Subsistemas y Partes.",
+        widget=forms.ClearableFileInput(
+            attrs={"accept": ".xlsx", "class": "form-control"}
+        ),
+    )
+
+
+
 class ActivoForm(forms.ModelForm):
     class Meta:
         model = Activo
