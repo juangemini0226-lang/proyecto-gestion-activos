@@ -1,7 +1,4 @@
 # activos/views.py
-import logging
-from zipfile import BadZipFile
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
@@ -17,12 +14,13 @@ from horometro.models import AlertaMantenimiento
 from .forms import (
     ActivoForm,
     AsignarOTForm,
-    ImportarTaxonomiaForm,
     RegistroMantenimientoForm,
     NovedadForm,
     CrearOTDesdeNovedadForm,
+    TaxonomiaUploadForm,
     build_taxonomia_formsets,
 )
+from .importers import TaxonomiaImportError, TaxonomiaImporter
 from .models import (
     Activo,
     DetalleMantenimiento,
@@ -35,19 +33,6 @@ from .models import (
     Ubicacion,
     Novedad,
 )
-
-from .importers import TaxonomiaImporter
-
-try:
-    from openpyxl import load_workbook
-    from openpyxl.utils.exceptions import InvalidFileException
-except ImportError:  # pragma: no cover - se valida en tiempo de ejecución
-    load_workbook = None
-    InvalidFileException = Exception  # type: ignore[assignment]
-
-
-logger = logging.getLogger(__name__)
-
 
 def redirect_buscar_a_detalle(request, codigo: str):
     """Pequeño atajo que redirige un código a su vista de detalle.
@@ -69,95 +54,49 @@ def redirect_buscar_a_detalle(request, codigo: str):
 @login_required
 def activos_list(request):
     """Listado sencillo de activos."""
-    activos = Activo.objects.all().order_by("codigo")
-    import_form = ImportarTaxonomiaForm()
+    activos = Activo.objects.all().order_by("codigo", "nombre")
 
     if request.method == "POST":
-        import_form = ImportarTaxonomiaForm(request.POST, request.FILES)
-        if import_form.is_valid():
-            if load_workbook is None:
-                messages.error(
-                    request,
-                    "Debe instalar la dependencia 'openpyxl' para importar la taxonomía.",
-                )
-                return redirect("activos:activos_list")
-
-            archivo = import_form.cleaned_data["archivo"]
+        taxonomia_form = TaxonomiaUploadForm(request.POST, request.FILES)
+        if taxonomia_form.is_valid():
+            activo = taxonomia_form.cleaned_data["activo"]
+            archivo = taxonomia_form.cleaned_data["archivo"]
+            limpiar = taxonomia_form.cleaned_data["limpiar"]
             try:
-                archivo.seek(0)  # Por si el almacenamiento no está en modo streaming
-            except (AttributeError, OSError):
-                pass
-
-            try:
-                workbook = load_workbook(filename=archivo, data_only=True)
-            except (InvalidFileException, BadZipFile) as exc:
-                messages.error(
-                    request,
-                    "El archivo seleccionado no es un Excel válido. "
-                    f"Detalle: {exc}",
+                importer = TaxonomiaImporter(
+                    activo=activo,
+                    archivo=archivo,
+                    limpiar=limpiar,
                 )
-                return redirect("activos:activos_list")
-
-            importer = TaxonomiaImporter()
-            try:
-                resultado = importer.importar_desde_workbook(workbook)
-            except Exception as exc:  # pragma: no cover - errores inesperados
-                logger.exception("Error al importar la taxonomía desde la interfaz web")
-                messages.error(
-                    request,
-                    "Ocurrió un error inesperado durante la importación. "
-                    "Revise el archivo e intente nuevamente.",
-                )
-                return redirect("activos:activos_list")
-
-            for advertencia in resultado.advertencias:
-                messages.warning(request, advertencia)
-
-            resumen_legible = "; ".join(
-                f"{titulo}: {cantidad}" for titulo, cantidad in resultado.resumen
-            )
-            if resumen_legible:
-                messages.success(
-                    request,
-                    f"Importación finalizada. {resumen_legible}",
-                )
+                summary = importer.importar()
+            except TaxonomiaImportError as exc:
+                messages.error(request, str(exc))
             else:
-                messages.success(request, "Importación finalizada.")
-
-            return redirect("activos:activos_list")
-
-    seleccionado_id = request.GET.get("ver_taxonomia")
-    activo_seleccionado = None
-    taxonomia = []
-
-    if seleccionado_id:
-        activo_seleccionado = (
-            Activo.objects.prefetch_related("sistemas__subsistemas__items__partes")
-            .filter(pk=seleccionado_id)
-            .first()
-        )
-    else:
-        primer_activo = activos.first()
-        if primer_activo:
-            activo_seleccionado = (
-                Activo.objects.prefetch_related("sistemas__subsistemas__items__partes")
-                .filter(pk=primer_activo.pk)
-                .first()
+                messages.success(request, summary.build_message())
+                if summary.errores:
+                    preview = 5
+                    for error in summary.errores[:preview]:
+                        messages.warning(request, error)
+                    restantes = len(summary.errores) - preview
+                    if restantes > 0:
+                        messages.warning(
+                            request,
+                            f"... y {restantes} fila(s) adicionales con errores.",
+                        )
+                return redirect("activos:activos_list")
+        else:
+            messages.error(
+                request, "Corrige los errores del formulario de importación."
             )
-
-    if activo_seleccionado:
-        taxonomia = _build_taxonomia_hierarchy(activo_seleccionado)
+    else:
+        taxonomia_form = TaxonomiaUploadForm()
 
     context = {
         "activos": activos,
         "section": "activos",
-        "import_form": import_form,
-        "activo_taxonomia": activo_seleccionado,
-        "taxonomia_activo": taxonomia,
+        "taxonomia_form": taxonomia_form,
     }
     return render(request, "activos/activos_list.html", context)
-
-
 def _apply_best_template_or_fallback(ot: RegistroMantenimiento):
     """Aplica la mejor plantilla disponible o genera un checklist base."""
     plantilla = (
