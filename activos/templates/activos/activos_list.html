@@ -1,4 +1,99 @@
 {% extends "core/base.html" %}
+{% block extra_head %}
+  {{ block.super }}
+  <style>
+    .jerarquia-tree {
+      font-size: 0.95rem;
+    }
+
+    .jerarquia-tree ul {
+      list-style: none;
+      margin: 0;
+      padding-left: 1rem;
+      border-left: 1px solid var(--bs-border-color, #dee2e6);
+    }
+
+    .jerarquia-tree .tree-root {
+      border-left: none;
+      padding-left: 0;
+    }
+
+    .jerarquia-tree li {
+      position: relative;
+      margin: 0;
+      padding: 0.25rem 0 0.25rem 0.75rem;
+    }
+
+    .jerarquia-tree .tree-root > li {
+      padding-left: 0.5rem;
+    }
+
+    .jerarquia-tree li::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -0.75rem;
+      width: 0.75rem;
+      height: 100%;
+      border-left: 1px solid var(--bs-border-color, #dee2e6);
+    }
+
+    .jerarquia-tree .tree-root > li::before,
+    .jerarquia-tree .tree-leaf::before {
+      display: none;
+    }
+
+    .jerarquia-tree details {
+      position: relative;
+    }
+
+    .jerarquia-tree summary {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      list-style: none;
+    }
+
+    .jerarquia-tree summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .jerarquia-tree .tree-toggle-icon {
+      transition: transform 0.2s ease;
+      font-size: 0.85rem;
+    }
+
+    .jerarquia-tree details[open] > summary .tree-toggle-icon {
+      transform: rotate(90deg);
+    }
+
+    .jerarquia-tree .tree-leaf-content {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-left: 1.4rem;
+    }
+
+    .jerarquia-tree .tree-label {
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      font-size: 0.65rem;
+    }
+
+    .jerarquia-tree .tree-label-root {
+      background-image: linear-gradient(135deg, var(--bs-dark, #212529), #343a40);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .jerarquia-tree .tree-badge {
+      font-size: 0.7rem;
+      color: var(--bs-secondary-color, #6c757d);
+    }
+  </style>
+{% endblock %}
 {% block content %}
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -8,6 +103,12 @@
  <div class="card shadow-sm mb-4">
     <div class="card-body">
       <h2 class="h6 mb-3">Importar jerarquía desde Excel</h2>
+      {% if not hay_activos %}
+        <div class="alert alert-warning py-2 px-3 small" role="alert">
+          Debes crear primero un activo para poder asociar la jerarquía importada.
+          Usa el botón <strong>"Nuevo"</strong> de la esquina superior derecha para registrarlo.
+        </div>
+      {% endif %}
       <form method="post" enctype="multipart/form-data" class="row g-3 align-items-end">
         {% csrf_token %}
         <div class="col-12 col-lg-4">
@@ -42,7 +143,7 @@
           <div class="text-danger small">{{ error }}</div>
           {% endfor %}
           <div class="text-lg-end mt-3 mt-lg-0">
-            <button type="submit" class="btn btn-outline-primary">Importar Excel</button>
+            <button type="submit" class="btn btn-outline-primary"{% if not hay_activos %} disabled{% endif %}>Importar Excel</button>
           </div>
         </div>
         {% if taxonomia_form.non_field_errors %}
@@ -55,6 +156,36 @@
       </form>
     </div>
   </div>
+  {% if taxonomia_preview_activo %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h2 class="h6 mb-0">
+            Jerarquía de {{ taxonomia_preview_activo.codigo }} — {{ taxonomia_preview_activo.nombre }}
+          </h2>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Controles de jerarquía">
+            <a href="{% url 'activos:detalle_activo_por_codigo' taxonomia_preview_activo.codigo %}" class="btn btn-outline-primary">
+              <i class="bi bi-box-arrow-up-right me-1"></i> Ver detalle
+            </a>
+            <a href="{% url 'activos:activos_list' %}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg me-1"></i> Cerrar
+            </a>
+          </div>
+        </div>
+        {% if taxonomia_preview %}
+          <div class="jerarquia-tree">
+            <ul class="tree-root list-unstyled mb-0">
+              {% for nodo in taxonomia_preview %}
+                {% include "activos/partials/_taxonomia_node.html" with nodo=nodo %}
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Este activo aún no tiene jerarquía registrada.</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
   <div class="table-responsive">
     <table class="table table-sm">
       <thead class="table-light">
@@ -80,13 +211,15 @@
           <td>{{ activo.estado }}</td>
           <td>{{ activo.ubicacion }}</td>
           <td>
-            <a href="{% url 'activos:activo_update' activo.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+            <div class="btn-group btn-group-sm">
+              <a href="{% url 'activos:detalle_activo_por_codigo' activo.codigo %}" class="btn btn-outline-primary">Ver</a>
+              <a href="{% url 'activos:activos_list' %}?taxonomia={{ activo.pk }}" class="btn btn-outline-secondary">Jerarquía</a>
+              <a href="{% url 'activos:activo_update' activo.pk %}" class="btn btn-outline-secondary">Editar</a>
+            </div>
           </td>
         </tr>
         {% empty %}
-        <tr>
-          <td colspan="8" class="text-center text-muted py-4">No hay activos.</td>
-        </tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">No hay activos.</td></tr>
         {% endfor %}
       </tbody>
     </table>

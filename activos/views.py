@@ -55,11 +55,75 @@ def redirect_buscar_a_detalle(request, codigo: str):
 @login_required
 def activos_list(request):
     """Listado sencillo de activos."""
-    activos = Activo.objects.all().order_by("codigo", "nombre")
+    activos = list(Activo.objects.all().order_by("codigo", "nombre"))
+    hay_activos = bool(activos)
+
+    if request.method == "POST":
+        taxonomia_form = TaxonomiaUploadForm(request.POST, request.FILES)
+        if not hay_activos:
+            taxonomia_form.disable()
+            messages.warning(
+                request,
+                "Debes crear un activo antes de poder importar su taxonomía.",
+            )
+            return redirect("activos:activos_list")
+        if taxonomia_form.is_valid():
+            activo = taxonomia_form.cleaned_data["activo"]
+            archivo = taxonomia_form.cleaned_data["archivo"]
+            limpiar = taxonomia_form.cleaned_data["limpiar"]
+            try:
+                importer = TaxonomiaImporter(
+                    activo=activo,
+                    archivo=archivo,
+                    limpiar=limpiar,
+                )
+                summary = importer.importar()
+            except TaxonomiaImportError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(request, summary.build_message())
+                if summary.errores:
+                    preview = 5
+                    for error in summary.errores[:preview]:
+                        messages.warning(request, error)
+                    restantes = len(summary.errores) - preview
+                    if restantes > 0:
+                        messages.warning(
+                            request,
+                            f"... y {restantes} fila(s) adicionales con errores.",
+                        )
+                return redirect(
+                    f"{reverse('activos:activos_list')}?taxonomia={activo.pk}"
+                )
+        else:
+            messages.error(
+                request, "Corrige los errores del formulario de importación."
+            )
+    else:
+        taxonomia_form = TaxonomiaUploadForm()
+        if not hay_activos:
+            taxonomia_form.disable()
+
+    preview_activo = None
+    preview_taxonomia = []
+    preview_param = request.GET.get("taxonomia")
+    if preview_param:
+        try:
+            preview_activo = Activo.objects.prefetch_related(
+                "sistemas__subsistemas__items__partes"
+            ).get(pk=preview_param)
+        except (ValueError, Activo.DoesNotExist):
+            preview_activo = None
+        else:
+            preview_taxonomia = _build_taxonomia_hierarchy(preview_activo)
 
     context = {
         "activos": activos,
+        "hay_activos": hay_activos,
         "section": "activos",
+        "taxonomia_form": taxonomia_form,
+        "taxonomia_preview_activo": preview_activo,
+        "taxonomia_preview": preview_taxonomia,
     }
     return render(request, "activos/activos_list.html", context)
 def _apply_best_template_or_fallback(ot: RegistroMantenimiento):
@@ -485,9 +549,10 @@ def _build_taxonomia_hierarchy(activo: Activo):
             )
         )
 
+    root_label = activo.nombre or "Molde"
     root_node = build_node(
         activo,
-        label="Molde",
+        label=root_label,
         badge_class="text-bg-dark tree-label-root",
         icon_class="bi bi-box-seam",
         children=jerarquia,
@@ -497,6 +562,7 @@ def _build_taxonomia_hierarchy(activo: Activo):
     )
 
     return [root_node]
+
 
 def detalle_activo_por_codigo(request, codigo: str):
     """Detalle de un activo buscado por su código."""

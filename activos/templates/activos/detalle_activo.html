@@ -129,8 +129,8 @@
           <dt class="col-sm-3">Ubicación</dt><dd class="col-sm-9">{{ activo.ubicacion }}</dd>
         {% endif %}
       </dl>
- {% if activo.documentos.all %}
-        <hr/>
+  {% if activo.documentos.all %}
+        <hr />
         <h2 class="h6">Documentos</h2>
         <div class="d-flex align-items-center gap-2">
           <select id="doc-select" class="form-select w-auto">
@@ -143,10 +143,12 @@
           <a id="doc-open" class="btn btn-primary" target="_blank">Abrir</a>
         </div>
         <script>
-          document.addEventListener('DOMContentLoaded', function() {
+          document.addEventListener('DOMContentLoaded', function () {
             var select = document.getElementById('doc-select');
             var link = document.getElementById('doc-open');
-            function update() { link.href = select.value; }
+            function update() {
+              link.href = select.value;
+            }
             select.addEventListener('change', update);
             update();
           });
@@ -165,82 +167,30 @@
       <i class="bi bi-qr-code-scan me-1"></i> Escanear otro activo
     </a>
   </div>
-  {% if sistemas %}
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h2 class="h6 mb-3">Estructura del activo</h2>
-      <ul class="taxonomy-tree list-unstyled mb-0">
-        {% for sistema in sistemas %}
-        <li class="mb-2">
-          <div class="taxonomy-node">
-            <span class="taxonomy-tag">{{ sistema.tag }}</span>
-            {% if sistema.nombre %}<span class="taxonomy-name">{{ sistema.nombre }}</span>{% endif %}
+  {% if novedades %}
+    <div class="mb-4">
+      {% for novedad in novedades %}
+        <div class="alert alert-warning d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <strong>{{ novedad.get_etapa_display|default:novedad.etapa }}</strong>:
+            <a href="{% url 'activos:novedad_detail' novedad.id %}" class="link-underline link-underline-opacity-0">
+              {{ novedad.descripcion }}
+            </a>
+            <small class="text-muted">{{ novedad.fecha|date:"Y-m-d H:i" }}</small>
           </div>
-          {% if sistema.subsistemas.all %}
-          <ul class="taxonomy-branch list-unstyled mt-2 mb-0">
-            {% for subsistema in sistema.subsistemas.all %}
-            <li class="mb-1">
-              <div class="taxonomy-node">
-                <span class="taxonomy-tag">{{ subsistema.tag }}</span>
-                {% if subsistema.nombre %}<span class="taxonomy-name">{{ subsistema.nombre }}</span>{% endif %}
-              </div>
-              {% if subsistema.items.all %}
-              <ul class="taxonomy-branch list-unstyled mt-2 mb-0">
-                {% for item in subsistema.items.all %}
-                <li class="mb-1">
-                  <div class="taxonomy-node">
-                    <span class="taxonomy-tag">{{ item.tag }}</span>
-                    {% if item.nombre %}<span class="taxonomy-name">{{ item.nombre }}</span>{% endif %}
-                  </div>
-                  {% if item.partes.all %}
-                  <ul class="taxonomy-branch list-unstyled mt-2 mb-0">
-                    {% for parte in item.partes.all %}
-                    <li>
-                      <div class="taxonomy-node">
-                        <span class="taxonomy-tag">{{ parte.tag }}</span>
-                        {% if parte.nombre %}<span class="taxonomy-name">{{ parte.nombre }}</span>{% endif %}
-                      </div>
-                    </li>
-                    {% endfor %}
-                  </ul>
-                  {% endif %}
-                </li>
-                {% endfor %}
-              </ul>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
+          <div>
+            {% if novedad.orden_mantenimiento %}
+              <a href="{% url 'activos:checklist_mantenimiento' novedad.orden_mantenimiento.id %}" class="btn btn-sm btn-outline-primary">OT #{{ novedad.orden_mantenimiento.id }}</a>
+            {% else %}
+              <span class="badge text-bg-secondary">Sin OT</span>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
     </div>
-  </div>
   {% endif %}
-{% if novedades %}
-  <div class="mb-4">
-    {% for novedad in novedades %}
-    <div class="alert alert-warning d-flex justify-content-between align-items-center mb-2">
-      <div>
-        <strong>{{ novedad.get_etapa_display|default:novedad.etapa }}</strong>:
-        <a href="{% url 'activos:novedad_detail' novedad.id %}" class="link-underline link-underline-opacity-0">
-          {{ novedad.descripcion }}
-        </a>
-        <small class="text-muted">{{ novedad.fecha|date:"Y-m-d H:i" }}</small>
-      </div>
-      <div>
-        {% if novedad.orden_mantenimiento %}
-        <a href="{% url 'activos:checklist_mantenimiento' novedad.orden_mantenimiento.id %}" class="btn btn-sm btn-outline-primary">OT #{{ novedad.orden_mantenimiento.id }}</a>
-        {% else %}
-        <span class="badge text-bg-secondary">Sin OT</span>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-<!-- Jerarquía del activo -->
+
+  <!-- Jerarquía del activo -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -271,28 +221,6 @@
     </div>
   </div>
 
-{% if novedades %}
-  <div class="mb-4">
-    {% for novedad in novedades %}
-    <div class="alert alert-warning d-flex justify-content-between align-items-center mb-2">
-      <div>
-        <strong>{{ novedad.get_etapa_display|default:novedad.etapa }}</strong>:
-        <a href="{% url 'activos:novedad_detail' novedad.id %}" class="link-underline link-underline-opacity-0">
-          {{ novedad.descripcion }}
-        </a>
-        <small class="text-muted">{{ novedad.fecha|date:"Y-m-d H:i" }}</small>
-      </div>
-      <div>
-        {% if novedad.orden_mantenimiento %}
-        <a href="{% url 'activos:checklist_mantenimiento' novedad.orden_mantenimiento.id %}" class="btn btn-sm btn-outline-primary">OT #{{ novedad.orden_mantenimiento.id }}</a>
-        {% else %}
-        <span class="badge text-bg-secondary">Sin OT</span>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
   <!-- Reportar novedad -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">

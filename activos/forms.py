@@ -58,9 +58,17 @@ class ActivoForm(forms.ModelForm):
 class TaxonomiaUploadForm(forms.Form):
     """Formulario sencillo para importar la taxonomía desde Excel."""
 
+    activo = forms.ModelChoiceField(
+        queryset=Activo.objects.none(),
+        label="Activo",
+        help_text="Selecciona el activo que recibirá la taxonomía.",
+    )
     archivo = forms.FileField(
         label="Archivo Excel (.xlsx)",
         help_text="Debe contener columnas para sistema, subsistema, ítem y parte.",
+        widget=forms.ClearableFileInput(
+            attrs={"accept": ".xlsx", "class": "form-control form-control-sm"}
+        ),
     )
     limpiar = forms.BooleanField(
         label="Reemplazar jerarquía existente",
@@ -70,8 +78,21 @@ class TaxonomiaUploadForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["archivo"].widget.attrs.setdefault("class", "form-control form-control-sm")
+        self.fields["activo"].queryset = Activo.objects.order_by("codigo", "nombre")
+        self.fields["activo"].empty_label = "Selecciona un activo"
+        self.fields["activo"].widget.attrs.setdefault("class", "form-select form-select-sm")
+        # ``ClearableFileInput`` no respeta ``form-control-sm`` al inicializarse,
+        # por lo que forzamos la clase en ``attrs`` y evitamos sobrescribirla aquí.
+        self.fields["archivo"].widget.attrs.setdefault(
+            "class", "form-control form-control-sm"
+        )
         self.fields["limpiar"].widget.attrs.setdefault("class", "form-check-input")
+
+    def disable(self) -> None:
+        """Deshabilita todos los campos para evitar envíos accidentales."""
+
+        for field in self.fields.values():
+            field.disabled = True
 
 
 class SistemaForm(forms.ModelForm):
