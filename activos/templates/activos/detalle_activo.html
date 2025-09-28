@@ -82,6 +82,17 @@
       letter-spacing: 0.04em;
       font-size: 0.65rem;
     }
+
+    .jerarquia-tree .tree-label-root {
+      background-image: linear-gradient(135deg, var(--bs-dark, #212529), #343a40);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .jerarquia-tree .tree-badge {
+      font-size: 0.7rem;
+      color: var(--bs-secondary-color, #6c757d);
+    }
   </style>
 {% endblock %}
 
@@ -234,7 +245,7 @@
     <div class="card-body">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h2 class="h6 mb-0">Jerarquía del activo</h2>
-        {% if sistemas %}
+        {% if taxonomia and taxonomia.0.children %}
           <div class="btn-group btn-group-sm" role="group" aria-label="Controles de jerarquía">
             <button type="button" class="btn btn-outline-secondary" data-tree-control="expand">
               <i class="bi bi-arrows-expand me-1"></i> Expandir todo
@@ -246,127 +257,11 @@
         {% endif %}
       </div>
 
-      {% if sistemas %}
+      {% if taxonomia %}
         <div id="jerarquia-tree" class="jerarquia-tree">
           <ul class="tree-root list-unstyled mb-0">
-            {% for sistema in sistemas %}
-              <li>
-                {% with subs=sistema.subsistemas.all %}
-                  {% if subs %}
-                    <details open>
-                      <summary>
-                        <i class="bi bi-chevron-right tree-toggle-icon"></i>
-                        <span class="badge text-bg-primary tree-label">Sistema</span>
-                        <span class="fw-semibold">{{ sistema.tag }}</span>
-                        {% if sistema.codigo %}
-                          <span class="text-muted small">({{ sistema.codigo }})</span>
-                        {% endif %}
-                        {% if sistema.nombre %}
-                          <span class="text-muted">— {{ sistema.nombre }}</span>
-                        {% endif %}
-                      </summary>
-                      <ul class="list-unstyled mb-0">
-                        {% for subsistema in subs %}
-                          <li>
-                            {% with items=subsistema.items.all %}
-                              {% if items %}
-                                <details>
-                                  <summary>
-                                    <i class="bi bi-chevron-right tree-toggle-icon"></i>
-                                    <span class="badge text-bg-info tree-label">Subsistema</span>
-                                    <span class="fw-semibold">{{ subsistema.tag }}</span>
-                                    {% if subsistema.codigo %}
-                                      <span class="text-muted small">({{ subsistema.codigo }})</span>
-                                    {% endif %}
-                                    {% if subsistema.nombre %}
-                                      <span class="text-muted">— {{ subsistema.nombre }}</span>
-                                    {% endif %}
-                                  </summary>
-                                  <ul class="list-unstyled mb-0">
-                                    {% for item in items %}
-                                      <li>
-                                        {% with partes=item.partes.all %}
-                                          {% if partes %}
-                                            <details>
-                                              <summary>
-                                                <i class="bi bi-chevron-right tree-toggle-icon"></i>
-                                                <span class="badge text-bg-warning tree-label text-dark">Ítem</span>
-                                                <span class="fw-semibold">{{ item.tag }}</span>
-                                                {% if item.codigo %}
-                                                  <span class="text-muted small">({{ item.codigo }})</span>
-                                                {% endif %}
-                                                {% if item.nombre %}
-                                                  <span class="text-muted">— {{ item.nombre }}</span>
-                                                {% endif %}
-                                              </summary>
-                                              <ul class="list-unstyled mb-0">
-                                                {% for parte in partes %}
-                                                  <li class="tree-leaf">
-                                                    <div class="tree-leaf-content">
-                                                      <span class="badge text-bg-light border tree-label text-dark">Parte</span>
-                                                      <span class="fw-semibold">{{ parte.tag }}</span>
-                                                      {% if parte.codigo %}
-                                                        <span class="text-muted small">({{ parte.codigo }})</span>
-                                                      {% endif %}
-                                                      {% if parte.nombre %}
-                                                        <span class="text-muted">— {{ parte.nombre }}</span>
-                                                      {% endif %}
-                                                    </div>
-                                                  </li>
-                                                {% endfor %}
-                                              </ul>
-                                            </details>
-                                          {% else %}
-                                            <div class="tree-leaf-content">
-                                              <span class="badge text-bg-warning tree-label text-dark">Ítem</span>
-                                              <span class="fw-semibold">{{ item.tag }}</span>
-                                              {% if item.codigo %}
-                                                <span class="text-muted small">({{ item.codigo }})</span>
-                                              {% endif %}
-                                              {% if item.nombre %}
-                                                <span class="text-muted">— {{ item.nombre }}</span>
-                                              {% endif %}
-                                              <span class="badge text-bg-light text-muted">Sin partes</span>
-                                            </div>
-                                          {% endif %}
-                                        {% endwith %}
-                                      </li>
-                                    {% endfor %}
-                                  </ul>
-                                </details>
-                              {% else %}
-                                <div class="tree-leaf-content">
-                                  <span class="badge text-bg-info tree-label">Subsistema</span>
-                                  <span class="fw-semibold">{{ subsistema.tag }}</span>
-                                  {% if subsistema.codigo %}
-                                    <span class="text-muted small">({{ subsistema.codigo }})</span>
-                                  {% endif %}
-                                  {% if subsistema.nombre %}
-                                    <span class="text-muted">— {{ subsistema.nombre }}</span>
-                                  {% endif %}
-                                  <span class="badge text-bg-light text-muted">Sin ítems</span>
-                                </div>
-                              {% endif %}
-                            {% endwith %}
-                          </li>
-                        {% endfor %}
-                      </ul>
-                    </details>
-                  {% else %}
-                    <div class="tree-leaf-content">
-                      <span class="badge text-bg-primary tree-label">Sistema</span>
-                      <span class="fw-semibold">{{ sistema.tag }}</span>
-                      {% if sistema.codigo %}
-                        <span class="text-muted small">({{ sistema.codigo }})</span>
-                      {% endif %}
-                      {% if sistema.nombre %}
-                        <span class="text-muted">— {{ sistema.nombre }}</span>
-                      {% endif %}
-                      <span class="badge text-bg-light text-muted">Sin subsistemas</span>
-                    </div>
-                  {% endif %}
-                {% endwith %}
-              </li>
+            {% for nodo in taxonomia %}
+              {% include "activos/partials/_taxonomia_node.html" with nodo=nodo %}
             {% endfor %}
           </ul>
         </div>

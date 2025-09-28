@@ -1,0 +1,56 @@
+{% load humanize %}
+<li class="mb-2">
+  {% with children=nodo.children %}
+    {% if children %}
+      <details class="tree-node" {% if nodo.expanded %}open{% endif %}>
+        <summary class="tree-summary">
+          <i class="bi bi-chevron-right tree-toggle-icon"></i>
+          <span class="badge tree-label {{ nodo.badge_class }}">
+            {% if nodo.icon_class %}<i class="{{ nodo.icon_class }}"></i>{% endif %}
+            {{ nodo.label }}
+          </span>
+          {% if nodo.identifier %}
+            <span class="fw-semibold">{{ nodo.identifier }}</span>
+          {% endif %}
+          {% if nodo.codigo %}
+            <span class="text-muted small">({{ nodo.codigo }})</span>
+          {% endif %}
+          {% if nodo.nombre %}
+            <span class="text-muted">— {{ nodo.nombre }}</span>
+          {% endif %}
+          {% with count=children|length %}
+            {% with base=nodo.children_label|default:"elemento" %}
+              <span class="tree-badge">{{ count }} {{ base }}{{ count|pluralize }}</span>
+            {% endwith %}
+          {% endwith %}
+        </summary>
+        <ul class="tree-children list-unstyled mb-0">
+          {% for child in children %}
+            {% include "activos/partials/_taxonomia_node.html" with nodo=child %}
+          {% endfor %}
+        </ul>
+      </details>
+    {% else %}
+      <div class="tree-leaf">
+        <span class="badge tree-label {{ nodo.badge_class }}">
+          {% if nodo.icon_class %}<i class="{{ nodo.icon_class }}"></i>{% endif %}
+          {{ nodo.label }}
+        </span>
+        <div class="tree-leaf-content">
+          {% if nodo.identifier %}
+            <span class="fw-semibold">{{ nodo.identifier }}</span>
+          {% endif %}
+          {% if nodo.codigo %}
+            <span class="text-muted small">({{ nodo.codigo }})</span>
+          {% endif %}
+          {% if nodo.nombre %}
+            <span class="text-muted">— {{ nodo.nombre }}</span>
+          {% endif %}
+          {% if nodo.empty_message %}
+            <span class="badge text-bg-light text-muted">{{ nodo.empty_message }}</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  {% endwith %}
+</li>

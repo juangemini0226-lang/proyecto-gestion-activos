@@ -7,7 +7,10 @@ from typing import Any, Dict, Iterable
 
 from django.db import transaction
 
+from zipfile import BadZipFile
+
 from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 
 from .models import ItemMantenible, Parte, Sistema, Subsistema
 
@@ -423,7 +426,17 @@ class TaxonomiaImporter:
         if isinstance(content, str):
             content = content.encode()
 
-        return load_workbook(io.BytesIO(content), data_only=True)
+        try:
+            return load_workbook(io.BytesIO(content), data_only=True)
+        except (InvalidFileException, BadZipFile) as exc:
+            raise TaxonomiaImportError(
+                "No se pudo leer el archivo de taxonomía. "
+                "Verifica que sea un Excel .xlsx válido."
+            ) from exc
+        except ValueError as exc:
+            raise TaxonomiaImportError(
+                "El archivo de taxonomía parece estar dañado o vacío."
+            ) from exc
 
     def _build_header_map(self, headers: Iterable[Any]) -> Dict[str, int]:
         mapping: Dict[str, int] = {}

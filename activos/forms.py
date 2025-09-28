@@ -35,6 +35,10 @@ class ImportarTaxonomiaForm(forms.Form):
 
 
 
+# Formularios de Activos
+# ──────────────────────────────────────────────────────────────────────────────
+
+
 class ActivoForm(forms.ModelForm):
     class Meta:
         model = Activo
@@ -54,11 +58,6 @@ class ActivoForm(forms.ModelForm):
 class TaxonomiaUploadForm(forms.Form):
     """Formulario sencillo para importar la taxonomía desde Excel."""
 
-    activo = forms.ModelChoiceField(
-        queryset=Activo.objects.none(),
-        label="Activo",
-        help_text="Selecciona el activo que recibirá la taxonomía.",
-    )
     archivo = forms.FileField(
         label="Archivo Excel (.xlsx)",
         help_text="Debe contener columnas para sistema, subsistema, ítem y parte.",
@@ -71,8 +70,6 @@ class TaxonomiaUploadForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["activo"].queryset = Activo.objects.order_by("codigo", "nombre")
-        self.fields["activo"].widget.attrs.setdefault("class", "form-select form-select-sm")
         self.fields["archivo"].widget.attrs.setdefault("class", "form-control form-control-sm")
         self.fields["limpiar"].widget.attrs.setdefault("class", "form-check-input")
 

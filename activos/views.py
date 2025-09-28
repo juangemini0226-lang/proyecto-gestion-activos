@@ -34,6 +34,7 @@ from .models import (
     Novedad,
 )
 
+
 def redirect_buscar_a_detalle(request, codigo: str):
     """Pequeño atajo que redirige un código a su vista de detalle.
 
@@ -56,45 +57,9 @@ def activos_list(request):
     """Listado sencillo de activos."""
     activos = Activo.objects.all().order_by("codigo", "nombre")
 
-    if request.method == "POST":
-        taxonomia_form = TaxonomiaUploadForm(request.POST, request.FILES)
-        if taxonomia_form.is_valid():
-            activo = taxonomia_form.cleaned_data["activo"]
-            archivo = taxonomia_form.cleaned_data["archivo"]
-            limpiar = taxonomia_form.cleaned_data["limpiar"]
-            try:
-                importer = TaxonomiaImporter(
-                    activo=activo,
-                    archivo=archivo,
-                    limpiar=limpiar,
-                )
-                summary = importer.importar()
-            except TaxonomiaImportError as exc:
-                messages.error(request, str(exc))
-            else:
-                messages.success(request, summary.build_message())
-                if summary.errores:
-                    preview = 5
-                    for error in summary.errores[:preview]:
-                        messages.warning(request, error)
-                    restantes = len(summary.errores) - preview
-                    if restantes > 0:
-                        messages.warning(
-                            request,
-                            f"... y {restantes} fila(s) adicionales con errores.",
-                        )
-                return redirect("activos:activos_list")
-        else:
-            messages.error(
-                request, "Corrige los errores del formulario de importación."
-            )
-    else:
-        taxonomia_form = TaxonomiaUploadForm()
-
     context = {
         "activos": activos,
         "section": "activos",
-        "taxonomia_form": taxonomia_form,
     }
     return render(request, "activos/activos_list.html", context)
 def _apply_best_template_or_fallback(ot: RegistroMantenimiento):
@@ -428,18 +393,110 @@ def cambiar_estado_ot(request, pk: int):
 
 def _build_taxonomia_hierarchy(activo: Activo):
     """Arma una estructura anidada de la jerarquía técnica del activo."""
+
+    def build_node(
+        obj,
+        *,
+        label,
+        badge_class,
+        icon_class=None,
+        children=None,
+        empty_message=None,
+        expanded=None,
+        children_label=None,
+    ):
+        """Arma un diccionario con metadatos comunes para el árbol."""
+
+        identifier = getattr(obj, "tag", None) or getattr(obj, "codigo", None)
+        if not identifier:
+            identifier = getattr(obj, "numero_activo", None) or getattr(obj, "nombre", None)
+
+        codigo = getattr(obj, "codigo", None)
+        if codigo == identifier:
+            codigo = None
+
+        nombre = getattr(obj, "nombre", None)
+        if nombre == identifier:
+            nombre = None
+
+        return {
+            "obj": obj,
+            "label": label,
+            "badge_class": badge_class,
+            "icon_class": icon_class,
+            "children": children or [],
+            "empty_message": empty_message,
+            "expanded": expanded if expanded is not None else bool(children),
+            "identifier": identifier,
+            "codigo": codigo,
+            "nombre": nombre,
+            "children_label": children_label,
+        }
+
     jerarquia = []
     for sistema in activo.sistemas.all():
         subsistemas = []
         for subsistema in sistema.subsistemas.all():
             items = []
             for item in subsistema.items.all():
-                partes = list(item.partes.all())
-                items.append({"obj": item, "partes": partes})
-            subsistemas.append({"obj": subsistema, "items": items})
-        jerarquia.append({"obj": sistema, "subsistemas": subsistemas})
-    return jerarquia
+                partes = [
+                    build_node(
+                        parte,
+                        label="Parte",
+                        badge_class="text-bg-light border text-muted",
+                        icon_class="bi bi-puzzle",
+                        children=[],
+                        empty_message=None,
+                        expanded=False,
+                    )
+                    for parte in item.partes.all()
+                ]
+                items.append(
+                    build_node(
+                        item,
+                        label="Ítem",
+                        badge_class="text-bg-warning text-dark",
+                        icon_class="bi bi-gear-wide-connected",
+                        children=partes,
+                        empty_message="Sin partes",
+                        children_label="parte",
+                    )
+                )
+            subsistemas.append(
+                build_node(
+                    subsistema,
+                    label="Subsistema",
+                    badge_class="text-bg-info",
+                    icon_class="bi bi-diagram-3-center",
+                    children=items,
+                    empty_message="Sin ítems",
+                    children_label="ítem",
+                )
+            )
+        jerarquia.append(
+            build_node(
+                sistema,
+                label="Sistema",
+                badge_class="text-bg-primary",
+                icon_class="bi bi-diagram-3",
+                children=subsistemas,
+                empty_message="Sin subsistemas",
+                children_label="subsistema",
+            )
+        )
 
+    root_node = build_node(
+        activo,
+        label="Molde",
+        badge_class="text-bg-dark tree-label-root",
+        icon_class="bi bi-box-seam",
+        children=jerarquia,
+        empty_message="Sin sistemas registrados",
+        expanded=True,
+        children_label="sistema",
+    )
+
+    return [root_node]
 
 def detalle_activo_por_codigo(request, codigo: str):
     """Detalle de un activo buscado por su código."""
@@ -456,28 +513,62 @@ def detalle_activo_por_codigo(request, codigo: str):
     )
     novedades = activo.novedades.select_related("orden_mantenimiento").order_by("-fecha")
 
+    form = NovedadForm()
+    taxonomia_form = TaxonomiaUploadForm()
+
     if request.method == "POST":
-        form = NovedadForm(request.POST, request.FILES)
-        if form.is_valid():
-            novedad = form.save(commit=False)
-            novedad.activo = activo
-            if request.user.is_authenticated:
-                novedad.reportado_por = request.user
-            novedad.save()
-            return redirect("activos:detalle_activo_por_codigo", codigo=codigo)
-    else:
-        form = NovedadForm()
+        if request.POST.get("action") == "import_taxonomia":
+            taxonomia_form = TaxonomiaUploadForm(request.POST, request.FILES)
+            if taxonomia_form.is_valid():
+                archivo = taxonomia_form.cleaned_data["archivo"]
+                limpiar = taxonomia_form.cleaned_data["limpiar"]
+                try:
+                    importer = TaxonomiaImporter(
+                        activo=activo,
+                        archivo=archivo,
+                        limpiar=limpiar,
+                    )
+                    summary = importer.importar()
+                except TaxonomiaImportError as exc:
+                    messages.error(request, str(exc))
+                else:
+                    messages.success(request, summary.build_message())
+                    if summary.errores:
+                        preview = 5
+                        for error in summary.errores[:preview]:
+                            messages.warning(request, error)
+                        restantes = len(summary.errores) - preview
+                        if restantes > 0:
+                            messages.warning(
+                                request,
+                                f"... y {restantes} fila(s) adicionales con errores.",
+                            )
+                    return redirect(
+                        "activos:detalle_activo_por_codigo", codigo=codigo
+                    )
+            else:
+                messages.error(
+                    request, "Corrige los errores del formulario de importación."
+                )
+        else:
+            form = NovedadForm(request.POST, request.FILES)
+            if form.is_valid():
+                novedad = form.save(commit=False)
+                novedad.activo = activo
+                if request.user.is_authenticated:
+                    novedad.reportado_por = request.user
+                novedad.save()
+                return redirect("activos:detalle_activo_por_codigo", codigo=codigo)
 
     ctx = {
         "activo": activo,
-        "taxonomia": _build_taxonomia_hierarchy(activo),
+        "sistemas": activo.sistemas.all(),
         "ots": ots,
         "novedades": novedades,
         "novedad_form": form,
+        "taxonomia_form": taxonomia_form,
     }
     return render(request, "activos/detalle_activo.html", ctx)
-
-
 @login_required
 def novedad_detail(request, pk: int):
     novedad = get_object_or_404(
