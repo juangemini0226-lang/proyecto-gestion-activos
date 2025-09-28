@@ -107,15 +107,25 @@ def activos_list(request):
     preview_activo = None
     preview_taxonomia = []
     preview_param = request.GET.get("taxonomia")
+    preview_requested = bool(preview_param)
     if preview_param:
+        taxonomia_qs = Activo.objects.prefetch_related(
+            "sistemas__subsistemas__items__partes"
+        )
         try:
-            preview_activo = Activo.objects.prefetch_related(
-                "sistemas__subsistemas__items__partes"
-            ).get(pk=preview_param)
+            preview_activo = taxonomia_qs.get(pk=preview_param)
         except (ValueError, Activo.DoesNotExist):
-            preview_activo = None
-        else:
+            preview_activo = taxonomia_qs.filter(
+                Q(codigo__iexact=preview_param)
+                | Q(numero_activo__iexact=preview_param)
+            ).first()
+        if preview_activo:
             preview_taxonomia = _build_taxonomia_hierarchy(preview_activo)
+        else:
+            messages.warning(
+                request,
+                "No se encontró el activo indicado para mostrar su jerarquía.",
+            )
 
     context = {
         "activos": activos,
@@ -124,6 +134,7 @@ def activos_list(request):
         "taxonomia_form": taxonomia_form,
         "taxonomia_preview_activo": preview_activo,
         "taxonomia_preview": preview_taxonomia,
+        "taxonomia_preview_requested": preview_requested,
     }
     return render(request, "activos/activos_list.html", context)
 def _apply_best_template_or_fallback(ot: RegistroMantenimiento):
@@ -562,8 +573,6 @@ def _build_taxonomia_hierarchy(activo: Activo):
     )
 
     return [root_node]
-
-
 def detalle_activo_por_codigo(request, codigo: str):
     """Detalle de un activo buscado por su código."""
     activo = get_object_or_404(

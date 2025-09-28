@@ -156,13 +156,17 @@
       </form>
     </div>
   </div>
-  {% if taxonomia_preview_activo %}
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-          <h2 class="h6 mb-0">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h2 class="h6 mb-0">
+          {% if taxonomia_preview_activo %}
             Jerarquía de {{ taxonomia_preview_activo.codigo }} — {{ taxonomia_preview_activo.nombre }}
-          </h2>
+          {% else %}
+            Vista previa de jerarquía
+          {% endif %}
+        </h2>
+        {% if taxonomia_preview_activo %}
           <div class="btn-group btn-group-sm" role="group" aria-label="Controles de jerarquía">
             <a href="{% url 'activos:detalle_activo_por_codigo' taxonomia_preview_activo.codigo %}" class="btn btn-outline-primary">
               <i class="bi bi-box-arrow-up-right me-1"></i> Ver detalle
@@ -171,7 +175,13 @@
               <i class="bi bi-x-lg me-1"></i> Cerrar
             </a>
           </div>
-        </div>
+        {% elif taxonomia_preview_requested %}
+          <a href="{% url 'activos:activos_list' %}" class="btn btn-sm btn-outline-secondary">
+            Limpiar selección
+          </a>
+        {% endif %}
+      </div>
+      {% if taxonomia_preview_activo %}
         {% if taxonomia_preview %}
           <div class="jerarquia-tree">
             <ul class="tree-root list-unstyled mb-0">
@@ -183,9 +193,13 @@
         {% else %}
           <p class="text-muted mb-0">Este activo aún no tiene jerarquía registrada.</p>
         {% endif %}
-      </div>
+      {% elif taxonomia_preview_requested %}
+        <p class="text-muted mb-0">Selecciona un activo válido para visualizar su jerarquía desde esta tarjeta.</p>
+      {% else %}
+        <p class="text-muted mb-0">Selecciona el botón <strong>“Jerarquía”</strong> en la tabla de activos para previsualizar la taxonomía importada sin salir de esta pantalla.</p>
+      {% endif %}
     </div>
-  {% endif %}
+  </div>
   <div class="table-responsive">
     <table class="table table-sm">
       <thead class="table-light">
